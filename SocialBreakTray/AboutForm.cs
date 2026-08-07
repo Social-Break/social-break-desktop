@@ -11,14 +11,21 @@ namespace SocialBreakTray;
 /// </summary>
 public class AboutForm : Form
 {
-    public AboutForm()
+    /// <summary>Whether the "Don't show this automatically on startup"
+    /// checkbox was checked when the dialog closed - read by the caller
+    /// after ShowDialog() returns. Only ever affects the automatic
+    /// on-startup showing; opening this window from the tray menu always
+    /// shows it regardless of this setting.</summary>
+    public bool HideOnStartup { get; private set; }
+
+    public AboutForm(bool hideOnStartupChecked)
     {
         Text = "About Social Break";
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(400, 300);
+        ClientSize = new Size(400, 330);
         BackColor = Color.FromArgb(0x1e, 0x1e, 0x2e);
 
         var heading = new Label
@@ -46,10 +53,19 @@ public class AboutForm : Form
             Size = new Size(360, 190),
         };
 
+        var hideCheckbox = new CheckBox
+        {
+            Text = "Don't show this automatically on startup",
+            ForeColor = Color.FromArgb(0xa6, 0xad, 0xc8),
+            AutoSize = true,
+            Location = new Point(20, 250),
+            Checked = hideOnStartupChecked,
+        };
+
         var okButton = new Button
         {
             Text = "Got it",
-            Location = new Point(20, 248),
+            Location = new Point(20, 278),
             Size = new Size(360, 34),
             BackColor = Color.FromArgb(0x4c, 0xaf, 0x50),
             ForeColor = Color.White,
@@ -58,11 +74,12 @@ public class AboutForm : Form
         okButton.FlatAppearance.BorderSize = 0;
         okButton.Click += (_, _) =>
         {
+            HideOnStartup = hideCheckbox.Checked;
             DialogResult = DialogResult.OK;
             Close();
         };
 
-        Controls.AddRange(new Control[] { heading, body, okButton });
+        Controls.AddRange(new Control[] { heading, body, hideCheckbox, okButton });
         AcceptButton = okButton;
     }
 }

@@ -8,6 +8,7 @@ internal class StoredConfig
 {
     public string? Token { get; set; }
     public bool DisclosureAcknowledged { get; set; }
+    public bool HideWelcomeOnStartup { get; set; }
 }
 
 /// <summary>
@@ -40,6 +41,19 @@ public static class TokenStore
     {
         var config = Load();
         config.DisclosureAcknowledged = true;
+        Save(config);
+    }
+
+    public static bool IsWelcomeHiddenOnStartup() => Load().HideWelcomeOnStartup;
+
+    /// <summary>Controls only the automatic on-startup showing of AboutForm -
+    /// opening it from the tray menu always shows it regardless of this
+    /// setting, since that's an explicit request, not the automatic
+    /// popup.</summary>
+    public static void SetHideWelcomeOnStartup(bool hide)
+    {
+        var config = Load();
+        config.HideWelcomeOnStartup = hide;
         Save(config);
     }
 

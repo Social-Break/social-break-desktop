@@ -133,17 +133,24 @@ public class TrayApplicationContext : ApplicationContext
         _heartbeatTimer.Start();
         _syncTimer.Start();
 
-        // Shown on every launch - without it, a background-only process
-        // gives zero visible feedback that it launched or what it does,
-        // which reads as broken/amateur rather than intentionally minimal.
-        // Also reachable anytime afterward via the tray menu.
-        ShowAbout();
+        // Shown on every launch by default - without it, a background-only
+        // process gives zero visible feedback that it launched or what it
+        // does, which reads as broken/amateur rather than intentionally
+        // minimal. The user can opt out of this automatic showing via its
+        // checkbox; opening it from the tray menu (ShowAbout() called
+        // directly, bypassing this check) always shows it regardless of
+        // that preference, since that's an explicit request.
+        if (!TokenStore.IsWelcomeHiddenOnStartup())
+        {
+            ShowAbout();
+        }
     }
 
     private static void ShowAbout()
     {
-        using var about = new AboutForm();
+        using var about = new AboutForm(TokenStore.IsWelcomeHiddenOnStartup());
         about.ShowDialog();
+        TokenStore.SetHideWelcomeOnStartup(about.HideOnStartup);
     }
 
     private Task<bool> ShowDisclosureIfNeededAsync()
