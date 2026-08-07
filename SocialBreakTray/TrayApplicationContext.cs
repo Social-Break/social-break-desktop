@@ -100,6 +100,7 @@ public class TrayApplicationContext : ApplicationContext
 
         menu.Items.Add("Pause tracking (5 min)", null, (_, _) => PauseTracking());
         menu.Items.Add("Open Dashboard", null, (_, _) => OpenDashboard());
+        menu.Items.Add("About Social Break", null, (_, _) => ShowAbout());
 
         _startWithWindowsItem = new ToolStripMenuItem("Start with Windows") { CheckOnClick = true, Checked = AutoStart.IsEnabled() };
         _startWithWindowsItem.Click += (_, _) => AutoStart.SetEnabled(_startWithWindowsItem.Checked);
@@ -131,6 +132,23 @@ public class TrayApplicationContext : ApplicationContext
 
         _heartbeatTimer.Start();
         _syncTimer.Start();
+
+        // One-time "here's what this is and where it went" confirmation -
+        // without it, a background-only process gives zero visible feedback
+        // that it launched or what it does, which reads as broken/amateur
+        // rather than intentionally minimal. Shown once per login (not on
+        // every auto-start), reachable afterward via the tray menu.
+        if (!TokenStore.IsWelcomeShown())
+        {
+            ShowAbout();
+            TokenStore.MarkWelcomeShown();
+        }
+    }
+
+    private static void ShowAbout()
+    {
+        using var about = new AboutForm();
+        about.ShowDialog();
     }
 
     private Task<bool> ShowDisclosureIfNeededAsync()
