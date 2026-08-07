@@ -133,16 +133,11 @@ public class TrayApplicationContext : ApplicationContext
         _heartbeatTimer.Start();
         _syncTimer.Start();
 
-        // One-time "here's what this is and where it went" confirmation -
-        // without it, a background-only process gives zero visible feedback
-        // that it launched or what it does, which reads as broken/amateur
-        // rather than intentionally minimal. Shown once per login (not on
-        // every auto-start), reachable afterward via the tray menu.
-        if (!TokenStore.IsWelcomeShown())
-        {
-            ShowAbout();
-            TokenStore.MarkWelcomeShown();
-        }
+        // Shown on every launch - without it, a background-only process
+        // gives zero visible feedback that it launched or what it does,
+        // which reads as broken/amateur rather than intentionally minimal.
+        // Also reachable anytime afterward via the tray menu.
+        ShowAbout();
     }
 
     private static void ShowAbout()

@@ -1,13 +1,13 @@
 namespace SocialBreakTray;
 
 /// <summary>
-/// A small "what is this and where did it go" window - shown once
-/// automatically right after the first successful login, and reachable
-/// afterward from the tray menu at any time. Exists purely so the app isn't
-/// a pure background process with zero visible confirmation it's running or
-/// what it does; it is deliberately not a dashboard - just a pointer back
-/// to the tray icon and the website, matching the "no separate dashboard"
-/// design (see TrayApplicationContext's docstring).
+/// A small "what is this and where did it go" window - shown automatically
+/// on every launch, and also reachable from the tray menu at any time.
+/// Exists purely so the app isn't a pure background process with zero
+/// visible confirmation it's running or what it does; it is deliberately
+/// not a dashboard - just a pointer back to the tray icon and the website,
+/// matching the "no separate dashboard" design (see
+/// TrayApplicationContext's docstring).
 /// </summary>
 public class AboutForm : Form
 {

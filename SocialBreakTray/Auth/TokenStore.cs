@@ -8,7 +8,6 @@ internal class StoredConfig
 {
     public string? Token { get; set; }
     public bool DisclosureAcknowledged { get; set; }
-    public bool WelcomeShown { get; set; }
 }
 
 /// <summary>
@@ -41,15 +40,6 @@ public static class TokenStore
     {
         var config = Load();
         config.DisclosureAcknowledged = true;
-        Save(config);
-    }
-
-    public static bool IsWelcomeShown() => Load().WelcomeShown;
-
-    public static void MarkWelcomeShown()
-    {
-        var config = Load();
-        config.WelcomeShown = true;
         Save(config);
     }
 
