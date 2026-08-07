@@ -1,0 +1,8 @@
+Before you continue:
+
+Windows may show a "Windows protected your PC" (SmartScreen) or Defender
+warning during this install. That's expected for a new, independently-
+published app like this one - it hasn't yet built up the download reputation
+Windows uses to skip that prompt, not a sign that anything is wrong.
+
+If you see it: click "More info", then "Run anyway" to continue.

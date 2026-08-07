@@ -9,3 +9,6 @@ obj/
 
 ## Publish output
 publish/
+
+## Inno Setup build output
+installer/Output/
