@@ -83,11 +83,36 @@ public static class LimitEvaluator
         return rule?.IsCompletelyBlocked ?? false;
     }
 
+    /// <summary>Whether today's per-app rule places this identifier outside
+    /// its time window right now (Custom Schedule only). Checked directly,
+    /// same reasoning as IsBlockedToday - never expressed as a numeric limit.
+    /// WindowIsBlock flips the meaning: false (default, "allow window") means
+    /// blocked OUTSIDE [WindowStart, WindowEnd); true ("block window") means
+    /// blocked INSIDE it instead.
+    ///
+    /// resetHour only decides which day's row to look at (GetLogicalDjangoDay)
+    /// - the window bounds are always compared against the REAL current
+    /// wall-clock time (DateTime.Now.TimeOfDay), never resetHour-shifted. A
+    /// "18:00-21:00" window means literal 6-9pm regardless of when this
+    /// user's tracked day happens to reset.</summary>
+    public static bool IsBlockedByWindowNow(string identifier, PlanDto? plan, int resetHour)
+    {
+        if (plan == null || (plan.ActiveIdea != 3 && plan.ActiveIdea != 4)) return false;
+        int currentDjangoDay = GetLogicalDjangoDay(resetHour);
+        var rule = plan.CustomRules.FirstOrDefault(r => r.Domain == identifier && r.DayOfWeek == currentDjangoDay);
+        if (rule?.WindowStart is not { } start || rule.WindowEnd is not { } end) return false;
+
+        var nowTimeOfDay = DateTime.Now.TimeOfDay;
+        bool insideWindow = nowTimeOfDay >= start && nowTimeOfDay < end;
+        return rule.WindowIsBlock ? insideWindow : !insideWindow;
+    }
+
     public static bool IsLimitReached(string identifier, PlanDto? plan, int dailySecondsSoFar, int weeklySecondsSoFar, int resetHour)
     {
         if (plan == null || plan.ActiveIdea == 0) return false;
         if (plan.ActiveIdea == 1) return true; // Complete Break: always blocked, no accumulation needed
         if (IsBlockedToday(identifier, plan, resetHour)) return true;
+        if (IsBlockedByWindowNow(identifier, plan, resetHour)) return true;
 
         int weeklyLimitSeconds = GetWeeklyLimitSeconds(identifier, plan);
         bool weeklyReached = weeklyLimitSeconds > 0 && weeklySecondsSoFar >= weeklyLimitSeconds;

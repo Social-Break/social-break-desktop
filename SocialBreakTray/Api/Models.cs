@@ -51,6 +51,20 @@ public class CustomRuleDto
 
     [JsonPropertyName("limit_minutes")]
     public int? LimitMinutes { get; set; }
+
+    // Time-of-day window, Custom Schedule (Premium) only - see
+    // CustomAppRule.window_is_block's docstring in core/models.py. TimeSpan?
+    // rather than string: System.Text.Json's built-in TimeSpan converter
+    // (.NET 6+) round-trips exactly against DRF TimeField's "HH:MM:SS"
+    // output with no manual parsing needed on this side.
+    [JsonPropertyName("window_start")]
+    public TimeSpan? WindowStart { get; set; }
+
+    [JsonPropertyName("window_end")]
+    public TimeSpan? WindowEnd { get; set; }
+
+    [JsonPropertyName("window_is_block")]
+    public bool WindowIsBlock { get; set; }
 }
 
 // WeeklyAppRuleDomainSerializer: same domain-sourced-from-media_item.url
