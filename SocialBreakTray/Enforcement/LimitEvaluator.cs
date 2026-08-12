@@ -68,10 +68,26 @@ public static class LimitEvaluator
         return (plan.DailyLimitMinutes ?? 0) * 60;
     }
 
+    /// <summary>Whether today's per-app rule (Daily Limit or Custom Schedule
+    /// only) marks this identifier as fully blocked. Checked directly,
+    /// independent of the numeric daily-limit comparison below -
+    /// GetDailyLimitSeconds returns 0 for a blocked rule, but 0 also means
+    /// "no limit configured" for an unrestricted app, and dailyLimit > 0
+    /// collapses both to "never reached". Complete Break (idea 1) never
+    /// hits this path - it short-circuits in IsLimitReached instead.</summary>
+    public static bool IsBlockedToday(string identifier, PlanDto? plan, int resetHour)
+    {
+        if (plan == null || (plan.ActiveIdea != 3 && plan.ActiveIdea != 4)) return false;
+        int currentDjangoDay = GetLogicalDjangoDay(resetHour);
+        var rule = plan.CustomRules.FirstOrDefault(r => r.Domain == identifier && r.DayOfWeek == currentDjangoDay);
+        return rule?.IsCompletelyBlocked ?? false;
+    }
+
     public static bool IsLimitReached(string identifier, PlanDto? plan, int dailySecondsSoFar, int weeklySecondsSoFar, int resetHour)
     {
         if (plan == null || plan.ActiveIdea == 0) return false;
         if (plan.ActiveIdea == 1) return true; // Complete Break: always blocked, no accumulation needed
+        if (IsBlockedToday(identifier, plan, resetHour)) return true;
 
         int weeklyLimitSeconds = GetWeeklyLimitSeconds(identifier, plan);
         bool weeklyReached = weeklyLimitSeconds > 0 && weeklySecondsSoFar >= weeklyLimitSeconds;
