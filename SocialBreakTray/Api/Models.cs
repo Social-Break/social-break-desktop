@@ -53,6 +53,17 @@ public class CustomRuleDto
     public int? LimitMinutes { get; set; }
 }
 
+// WeeklyAppRuleDomainSerializer: same domain-sourced-from-media_item.url
+// pattern as CustomRuleDto above, but per-week rather than per-day.
+public class WeeklyRuleDto
+{
+    [JsonPropertyName("domain")]
+    public string Domain { get; set; } = "";
+
+    [JsonPropertyName("limit_minutes")]
+    public int? LimitMinutes { get; set; }
+}
+
 // PlanSerializer's fields (baseline_daily_minutes is read-only server-side
 // and irrelevant to limit enforcement, deliberately omitted here).
 public class PlanDto
@@ -63,6 +74,10 @@ public class PlanDto
     [JsonPropertyName("daily_limit_minutes")]
     public int? DailyLimitMinutes { get; set; }
 
+    // Never actually set by any reachable UI action server-side (its only
+    // writer has no caller anywhere) - kept on the DTO only because the wire
+    // format still includes it, but LimitEvaluator must not read it for
+    // enforcement. Real per-app weekly caps live in WeeklyRules below.
     [JsonPropertyName("weekly_limit_minutes")]
     public int? WeeklyLimitMinutes { get; set; }
 
@@ -71,6 +86,9 @@ public class PlanDto
 
     [JsonPropertyName("custom_rules")]
     public List<CustomRuleDto> CustomRules { get; set; } = new();
+
+    [JsonPropertyName("weekly_rules")]
+    public List<WeeklyRuleDto> WeeklyRules { get; set; } = new();
 }
 
 public class ReportUsageResponse

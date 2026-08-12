@@ -22,6 +22,19 @@ public static class LimitEvaluator
         return dotNetDay == 0 ? 6 : dotNetDay - 1; // -> Monday=0..Sunday=6
     }
 
+    /// <summary>Per-app weekly limit, in seconds - 0 means unrestricted (no
+    /// WeeklyAppRule for this identifier). Mirrors background.js's
+    /// getDomainWeeklyLimit: PlanDto.WeeklyLimitMinutes (the old flat field)
+    /// is never actually set by any reachable UI action server-side, so it
+    /// always reads as 0 - real per-app weekly caps live in WeeklyRules,
+    /// the same table the website/mobile editors write to.</summary>
+    public static int GetWeeklyLimitSeconds(string identifier, PlanDto? plan)
+    {
+        if (plan == null) return 0;
+        var rule = plan.WeeklyRules.FirstOrDefault(r => r.Domain == identifier);
+        return rule?.LimitMinutes is { } limitMinutes ? limitMinutes * 60 : 0;
+    }
+
     /// <summary>Returns the applicable daily limit in seconds for this
     /// identifier right now (0 means "no daily limit applies" for plan
     /// types where that's meaningful - callers must not treat 0 as itself a
@@ -30,7 +43,7 @@ public static class LimitEvaluator
     {
         if (plan == null || plan.ActiveIdea == 0) return 0;
         if (plan.ActiveIdea == 1) return 0; // Complete Break has no separate daily concept - see IsLimitReached
-        if (plan.ActiveIdea == 2) return (plan.WeeklyLimitMinutes ?? 0) * 60;
+        if (plan.ActiveIdea == 2) return GetWeeklyLimitSeconds(identifier, plan);
 
         // Daily Limit (3) and Custom Schedule (4) both check per-app/per-day
         // rules first, falling back to the flat daily limit when this app
@@ -60,7 +73,7 @@ public static class LimitEvaluator
         if (plan == null || plan.ActiveIdea == 0) return false;
         if (plan.ActiveIdea == 1) return true; // Complete Break: always blocked, no accumulation needed
 
-        int weeklyLimitSeconds = (plan.WeeklyLimitMinutes ?? 0) * 60;
+        int weeklyLimitSeconds = GetWeeklyLimitSeconds(identifier, plan);
         bool weeklyReached = weeklyLimitSeconds > 0 && weeklySecondsSoFar >= weeklyLimitSeconds;
 
         if (plan.ActiveIdea == 2) return weeklyReached;
