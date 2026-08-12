@@ -31,9 +31,16 @@ public static class LimitEvaluator
         if (plan == null || plan.ActiveIdea == 0) return 0;
         if (plan.ActiveIdea == 1) return 0; // Complete Break has no separate daily concept - see IsLimitReached
         if (plan.ActiveIdea == 2) return (plan.WeeklyLimitMinutes ?? 0) * 60;
-        if (plan.ActiveIdea == 3) return (plan.DailyLimitMinutes ?? 0) * 60;
 
-        if (plan.ActiveIdea == 4)
+        // Daily Limit (3) and Custom Schedule (4) both check per-app/per-day
+        // rules first, falling back to the flat daily limit when this app
+        // has no rule for today - previously idea 3 skipped straight to the
+        // flat limit, making the Edit Rules screen's per-app configuration
+        // silently do nothing for Daily Limit users. Idea-3 rules never
+        // have IsCompletelyBlocked=true (the server rejects that outside
+        // Custom Schedule), so that branch is effectively idea-4-only in
+        // practice, but harmless to check unconditionally here.
+        if (plan.ActiveIdea == 3 || plan.ActiveIdea == 4)
         {
             int currentDjangoDay = GetLogicalDjangoDay(resetHour);
             var rule = plan.CustomRules.FirstOrDefault(r => r.Domain == identifier && r.DayOfWeek == currentDjangoDay);
