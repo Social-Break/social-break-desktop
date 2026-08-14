@@ -235,21 +235,24 @@ public class TrayApplicationContext : ApplicationContext
         int weeklySeconds = _accumulator.WeeklySeconds.GetValueOrDefault(match.Url);
         SetTrayStatus($"{match.Name} - {FormatTime(weeklySeconds)} this week");
 
-        if (!_dismissedForToday.Contains(match.Url) &&
-            LimitEvaluator.IsLimitReached(match.Url, _plan, dailySeconds, weeklySeconds, ResetHour))
+        if (!_dismissedForToday.Contains(match.Url))
         {
-            ShowBlockOverlay(match, foreground.Value.WindowHandle);
+            var blockReason = LimitEvaluator.IsLimitReached(match.Url, _plan, dailySeconds, weeklySeconds, ResetHour);
+            if (blockReason != null)
+            {
+                ShowBlockOverlay(match, foreground.Value.WindowHandle, blockReason);
+            }
         }
     }
 
-    private void ShowBlockOverlay(MediaItemDto match, nint windowHandle)
+    private void ShowBlockOverlay(MediaItemDto match, nint windowHandle, string blockReason)
     {
         if (_activeBlockForm is { IsDisposed: false }) return; // one at a time
 
         bool isRepeat = _alreadyBlockedToday.Contains(match.Url);
         _alreadyBlockedToday.Add(match.Url);
 
-        var block = new BlockForm(match.Name, windowHandle, isRepeat);
+        var block = new BlockForm(match.Name, windowHandle, blockReason, isRepeat);
         block.ContinueRequested += permanent =>
         {
             if (permanent)

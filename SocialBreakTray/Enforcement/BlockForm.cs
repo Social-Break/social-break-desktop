@@ -45,7 +45,21 @@ public class BlockForm : Form
     /// for unsaved changes rather than being forcibly killed.</summary>
     public event Action? CloseProgramRequested;
 
-    public BlockForm(string appDisplayName, nint targetWindowHandle, bool isRepeatPrompt = false)
+    // Mirrors block.html's REASON_MESSAGES in the extension - keep both in
+    // sync if a new LimitEvaluator.BlockReason code is ever added. {0} is
+    // the app's display name - spelled out explicitly here since this is a
+    // fullscreen native takeover, unlike a browser tab where the URL bar
+    // already shows what site you're on.
+    private static readonly Dictionary<string, string> ReasonSentenceFormats = new()
+    {
+        [LimitEvaluator.BlockReason.CompleteBreak] = "You're on a Complete Break, so {0} is fully paused.",
+        [LimitEvaluator.BlockReason.BlockedDay] = "{0} is blocked today, based on your Custom Schedule.",
+        [LimitEvaluator.BlockReason.TimeWindow] = "{0} is restricted right now, based on the time window you set for it.",
+        [LimitEvaluator.BlockReason.DailyLimit] = "You've used up your daily time limit for {0}.",
+        [LimitEvaluator.BlockReason.WeeklyLimit] = "You've used up your weekly time limit for {0}.",
+    };
+
+    public BlockForm(string appDisplayName, nint targetWindowHandle, string blockReason, bool isRepeatPrompt = false)
     {
         FormBorderStyle = FormBorderStyle.None;
         WindowState = FormWindowState.Maximized;
@@ -62,9 +76,11 @@ public class BlockForm : Form
             AutoSize = true,
         };
 
+        var reasonFormat = ReasonSentenceFormats.GetValueOrDefault(blockReason, "You've reached your limit for {0}.");
+        var reasonSentence = string.Format(reasonFormat, appDisplayName);
         var bodyText = isRepeatPrompt
-            ? $"You're still past your limit for {appDisplayName}. You can keep going, or close it now."
-            : $"You've reached your limit for {appDisplayName}. Take a moment before switching back.";
+            ? $"{reasonSentence} You can keep going, or close it now."
+            : $"{reasonSentence} Take a moment before switching back.";
         var bodyLabel = new Label
         {
             Text = bodyText,

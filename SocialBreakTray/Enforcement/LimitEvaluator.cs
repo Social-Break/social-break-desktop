@@ -107,25 +107,47 @@ public static class LimitEvaluator
         return rule.WindowIsBlock ? insideWindow : !insideWindow;
     }
 
-    public static bool IsLimitReached(string identifier, PlanDto? plan, int dailySecondsSoFar, int weeklySecondsSoFar, int resetHour)
+    /// <summary>Reason codes mirror background.js's isLimitReached exactly -
+    /// keep both in sync if a new one is ever added on either side.</summary>
+    public static class BlockReason
     {
-        if (plan == null || plan.ActiveIdea == 0) return false;
-        if (plan.ActiveIdea == 1) return true; // Complete Break: always blocked, no accumulation needed
-        if (IsBlockedToday(identifier, plan, resetHour)) return true;
-        if (IsBlockedByWindowNow(identifier, plan, resetHour)) return true;
+        public const string CompleteBreak = "complete_break";
+        public const string BlockedDay = "blocked_day";
+        public const string TimeWindow = "time_window";
+        public const string DailyLimit = "daily_limit";
+        public const string WeeklyLimit = "weekly_limit";
+    }
+
+    /// <summary>Returns a BlockReason code, or null when not blocked. Every
+    /// existing caller only ever checked this for null/non-null - unchanged
+    /// by this returning a reason string instead of a plain bool.</summary>
+    public static string? IsLimitReached(string identifier, PlanDto? plan, int dailySecondsSoFar, int weeklySecondsSoFar, int resetHour)
+    {
+        if (plan == null || plan.ActiveIdea == 0) return null;
+        if (plan.ActiveIdea == 1) return BlockReason.CompleteBreak; // Complete Break: always blocked, no accumulation needed
+        if (IsBlockedToday(identifier, plan, resetHour)) return BlockReason.BlockedDay;
+        if (IsBlockedByWindowNow(identifier, plan, resetHour)) return BlockReason.TimeWindow;
 
         int weeklyLimitSeconds = GetWeeklyLimitSeconds(identifier, plan);
         bool weeklyReached = weeklyLimitSeconds > 0 && weeklySecondsSoFar >= weeklyLimitSeconds;
 
-        if (plan.ActiveIdea == 2) return weeklyReached;
+        if (plan.ActiveIdea == 2) return weeklyReached ? BlockReason.WeeklyLimit : null;
 
         int dailyLimit = GetDailyLimitSeconds(identifier, plan, resetHour);
         bool dailyReached = dailyLimit > 0 && dailySecondsSoFar >= dailyLimit;
 
-        if (plan.ActiveIdea == 3) return dailyReached;
+        if (plan.ActiveIdea == 3) return dailyReached ? BlockReason.DailyLimit : null;
 
-        if (plan.ActiveIdea == 4) return dailyReached || weeklyReached;
+        // Custom Schedule (4) cares about both - daily checked first,
+        // matching the order it's already computed above (an arbitrary but
+        // deterministic pick for the rare case both are true at once).
+        if (plan.ActiveIdea == 4)
+        {
+            if (dailyReached) return BlockReason.DailyLimit;
+            if (weeklyReached) return BlockReason.WeeklyLimit;
+            return null;
+        }
 
-        return false;
+        return null;
     }
 }
