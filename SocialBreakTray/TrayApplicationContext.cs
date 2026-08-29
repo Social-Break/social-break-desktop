@@ -33,18 +33,10 @@ public class TrayApplicationContext : ApplicationContext
 
     private List<MediaItemDto> _trackedApps = new();
     private PlanDto? _plan;
-    private readonly Dictionary<string, DateTime> _snoozeExemptions = new();
-    // Apps that have already shown the block overlay at least once today -
-    // switches BlockForm from its first-time "you've hit your limit" copy
-    // to a "still want to continue?" framing on every re-encounter (after a
-    // snooze expires, or after Close Program + reopening the app). Reset
-    // implicitly by an app restart, same granularity as _snoozeExemptions.
-    private readonly HashSet<string> _alreadyBlockedToday = new();
-    // Apps where the user clicked "Continue nonetheless" on a repeat prompt -
-    // stops the overlay from reappearing for that app for the rest of the
-    // day. Usage still accrues and still reports to the server as normal;
-    // this only suppresses the nag, not the tracking itself.
-    private readonly HashSet<string> _dismissedForToday = new();
+    // Persisted to disk (see BlockStateStore's docstring) rather than kept
+    // purely in memory - a process restart shouldn't make the app "forget"
+    // an already-shown-today or already-dismissed-today choice.
+    private readonly BlockStateStore _blockState = new(ResetHour);
     private DateTime? _pausedUntilUtc;
     private BlockForm? _activeBlockForm;
 
@@ -223,7 +215,7 @@ public class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        if (_snoozeExemptions.TryGetValue(match.Url, out var snoozedUntil) && DateTime.UtcNow < snoozedUntil)
+        if (_blockState.IsSnoozed(match.Url))
         {
             SetTrayStatus($"Snoozed - {match.Name}");
             return;
@@ -235,7 +227,7 @@ public class TrayApplicationContext : ApplicationContext
         int weeklySeconds = _accumulator.WeeklySeconds.GetValueOrDefault(match.Url);
         SetTrayStatus($"{match.Name} - {FormatTime(weeklySeconds)} this week");
 
-        if (!_dismissedForToday.Contains(match.Url))
+        if (!_blockState.IsDismissedForToday(match.Url))
         {
             var blockReason = LimitEvaluator.IsLimitReached(match.Url, _plan, dailySeconds, weeklySeconds, ResetHour);
             if (blockReason != null)
@@ -249,19 +241,19 @@ public class TrayApplicationContext : ApplicationContext
     {
         if (_activeBlockForm is { IsDisposed: false }) return; // one at a time
 
-        bool isRepeat = _alreadyBlockedToday.Contains(match.Url);
-        _alreadyBlockedToday.Add(match.Url);
+        bool isRepeat = _blockState.HasAlreadyBlockedToday(match.Url);
+        _blockState.MarkBlockedToday(match.Url);
 
         var block = new BlockForm(match.Name, windowHandle, blockReason, isRepeat);
         block.ContinueRequested += permanent =>
         {
             if (permanent)
             {
-                _dismissedForToday.Add(match.Url);
+                _blockState.MarkDismissedForToday(match.Url);
             }
             else
             {
-                _snoozeExemptions[match.Url] = DateTime.UtcNow.AddMinutes(5);
+                _blockState.Snooze(match.Url, TimeSpan.FromMinutes(5));
             }
         };
         block.FormClosed += (_, _) => _activeBlockForm = null;
