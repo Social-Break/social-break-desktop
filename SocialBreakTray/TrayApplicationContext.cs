@@ -7,11 +7,12 @@ using SocialBreakTray.Tracking;
 namespace SocialBreakTray;
 
 /// <summary>
-/// The entire UI surface of this app - a tray icon and its menu, nothing
-/// else. No main window is ever shown; this is deliberately "like a
-/// switch," matching the browser extension's minimal popup rather than
-/// trying to be a second dashboard. Every setting beyond "start with
-/// Windows" and "pause briefly" lives on the website.
+/// The tray icon, its menu, and an optional Live Tracking window
+/// (LiveTrackingForm) showing today's/this week's accrued time per app -
+/// nothing else. That window is deliberately read-only: no limits, rules,
+/// or Media List editing happen here. Every setting beyond "start with
+/// Windows," "pause briefly," and viewing live totals still lives on the
+/// website.
 /// </summary>
 public class TrayApplicationContext : ApplicationContext
 {
@@ -39,6 +40,12 @@ public class TrayApplicationContext : ApplicationContext
     private readonly BlockStateStore _blockState = new(ResetHour);
     private DateTime? _pausedUntilUtc;
     private BlockForm? _activeBlockForm;
+    private LiveTrackingForm? _liveTrackingForm;
+    // The identifier of whichever tracked app is actively accruing time
+    // right now (null when idle/paused/no match) - read live by
+    // LiveTrackingForm via a getter delegate, not pushed to it, so it stays
+    // correct even while that window isn't open.
+    private string? _currentlyTrackingUrl;
 
     private ToolStripMenuItem _statusMenuItem = new();
     private ToolStripMenuItem _startWithWindowsItem = new();
@@ -55,7 +62,7 @@ public class TrayApplicationContext : ApplicationContext
             Text = "Social Break - not logged in",
         };
         _trayIcon.ContextMenuStrip = BuildMenu();
-        _trayIcon.DoubleClick += (_, _) => OpenDashboard();
+        _trayIcon.DoubleClick += (_, _) => ShowLiveTracking();
 
         _heartbeatTimer = new System.Windows.Forms.Timer { Interval = HeartbeatIntervalMs };
         _heartbeatTimer.Tick += (_, _) => HeartbeatTick();
@@ -91,7 +98,8 @@ public class TrayApplicationContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
 
         menu.Items.Add("Pause tracking (5 min)", null, (_, _) => PauseTracking());
-        menu.Items.Add("Open Dashboard", null, (_, _) => OpenDashboard());
+        menu.Items.Add("Live Tracking", null, (_, _) => ShowLiveTracking());
+        menu.Items.Add("Open Website", null, (_, _) => OpenWebsite());
         menu.Items.Add("About Social Break", null, (_, _) => ShowAbout());
 
         _startWithWindowsItem = new ToolStripMenuItem("Start with Windows") { CheckOnClick = true, Checked = AutoStart.IsEnabled() };
@@ -128,21 +136,22 @@ public class TrayApplicationContext : ApplicationContext
         // Shown on every launch by default - without it, a background-only
         // process gives zero visible feedback that it launched or what it
         // does, which reads as broken/amateur rather than intentionally
-        // minimal. The user can opt out of this automatic showing via its
-        // checkbox; opening it from the tray menu (ShowAbout() called
-        // directly, bypassing this check) always shows it regardless of
+        // minimal. Live Tracking (not the plain About dialog) is the one
+        // that auto-opens, since it gives real, useful information rather
+        // than just a static explanation. The user can opt out of this
+        // automatic showing via its own checkbox; opening it from the tray
+        // menu or double-clicking the icon always shows it regardless of
         // that preference, since that's an explicit request.
         if (!TokenStore.IsWelcomeHiddenOnStartup())
         {
-            ShowAbout();
+            ShowLiveTracking();
         }
     }
 
     private static void ShowAbout()
     {
-        using var about = new AboutForm(TokenStore.IsWelcomeHiddenOnStartup());
+        using var about = new AboutForm();
         about.ShowDialog();
-        TokenStore.SetHideWelcomeOnStartup(about.HideOnStartup);
     }
 
     private Task<bool> ShowDisclosureIfNeededAsync()
@@ -185,6 +194,11 @@ public class TrayApplicationContext : ApplicationContext
 
     private void HeartbeatTick()
     {
+        // Assumed not-tracking unless the accrual path below is actually
+        // reached this tick - simpler and less error-prone than clearing it
+        // at every one of the several early-return points above that path.
+        _currentlyTrackingUrl = null;
+
         if (_pausedUntilUtc is { } pausedUntil)
         {
             if (DateTime.UtcNow < pausedUntil)
@@ -222,6 +236,7 @@ public class TrayApplicationContext : ApplicationContext
         }
 
         _accumulator.AddSeconds(match.Url, HeartbeatIntervalMs / 1000);
+        _currentlyTrackingUrl = match.Url;
 
         int dailySeconds = _accumulator.DailySeconds.GetValueOrDefault(match.Url);
         int weeklySeconds = _accumulator.WeeklySeconds.GetValueOrDefault(match.Url);
@@ -267,7 +282,20 @@ public class TrayApplicationContext : ApplicationContext
         SetTrayStatus("Paused");
     }
 
-    private static void OpenDashboard()
+    private void ShowLiveTracking()
+    {
+        if (_liveTrackingForm is { IsDisposed: false })
+        {
+            _liveTrackingForm.Activate();
+            return;
+        }
+
+        _liveTrackingForm = new LiveTrackingForm(_accumulator, () => _trackedApps, () => _currentlyTrackingUrl, () => _plan, ResetHour);
+        _liveTrackingForm.FormClosed += (_, _) => _liveTrackingForm = null;
+        _liveTrackingForm.Show();
+    }
+
+    private static void OpenWebsite()
     {
         try
         {
@@ -310,7 +338,7 @@ public class TrayApplicationContext : ApplicationContext
         _trayIcon.Text = tooltip.Length > 127 ? tooltip[..127] : tooltip;
     }
 
-    private static string FormatTime(int totalSeconds)
+    internal static string FormatTime(int totalSeconds)
     {
         int h = totalSeconds / 3600;
         int m = (totalSeconds % 3600) / 60;
