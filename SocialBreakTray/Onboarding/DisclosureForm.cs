@@ -18,7 +18,6 @@ public class DisclosureForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(440, 380);
         BackColor = Color.FromArgb(0x1e, 0x1e, 0x2e);
 
         var heading = new Label
@@ -27,9 +26,15 @@ public class DisclosureForm : Form
             ForeColor = Color.FromArgb(0xcd, 0xd6, 0xf4),
             Font = new Font("Segoe UI", 13, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(20, 18),
         };
 
+        // AutoSize + MaximumSize (wrap width only, 0 = unbounded height)
+        // rather than a hardcoded Size - a fixed pixel height silently
+        // clips this text on any machine where the actual rendered font/DPI
+        // needs more vertical space than originally guessed, which is
+        // exactly what happened here (verified: text was being cut off
+        // mid-sentence on a real Windows machine, not just a theoretical
+        // risk). Matches the pattern already used in AboutForm/BlockForm.
         var body = new Label
         {
             Text =
@@ -44,18 +49,19 @@ public class DisclosureForm : Form
                 "leaves it in plain text.\r\n\r\n" +
                 "You can pause tracking, log out, or quit entirely at any time from the tray icon.",
             ForeColor = Color.FromArgb(0xa6, 0xad, 0xc8),
-            Location = new Point(20, 54),
-            Size = new Size(400, 260),
+            AutoSize = true,
+            MaximumSize = new Size(400, 0),
         };
 
         var continueButton = new Button
         {
             Text = "I Understand, Continue",
-            Location = new Point(20, 328),
+            AutoSize = false,
             Size = new Size(400, 34),
             BackColor = Color.FromArgb(0x4c, 0xaf, 0x50),
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
+            Margin = new Padding(0, 20, 0, 0),
         };
         continueButton.FlatAppearance.BorderSize = 0;
         continueButton.Click += (_, _) =>
@@ -64,7 +70,24 @@ public class DisclosureForm : Form
             Close();
         };
 
-        Controls.AddRange(new Control[] { heading, body, continueButton });
+        var panel = new FlowLayoutPanel
+        {
+            FlowDirection = FlowDirection.TopDown,
+            AutoSize = true,
+            WrapContents = false,
+            Location = new Point(20, 20),
+        };
+        panel.Controls.Add(heading);
+        panel.Controls.Add(body);
+        panel.SetFlowBreak(body, true);
+        panel.Controls.Add(continueButton);
+
+        Controls.Add(panel);
+        Load += (_, _) =>
+        {
+            ClientSize = new Size(panel.Width + 40, panel.Height + 40);
+        };
+
         AcceptButton = continueButton;
 
         // Deliberately no close/cancel path that lets someone skip past this

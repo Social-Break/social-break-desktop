@@ -77,3 +77,23 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: no
 ; would silently suppress the first-run "what this app does" dialog on a
 ; fresh reinstall, making it look like that dialog had been removed.
 Type: filesandordirs; Name: "{userappdata}\SocialBreak"
+
+[Code]
+// Warns on leaving the Tasks page if "autostart" was deselected - the app
+// can only track anything while it's actually running, so unchecking this
+// silently turns off tracking for every desktop_app entry on the user's
+// Media List until they remember to open it by hand. A one-time heads-up
+// here is cheaper than a confused support message later.
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if (CurPageID = wpSelectTasks) and (not WizardIsTaskSelected('autostart')) then
+  begin
+    MsgBox(
+      'Social Break won''t start automatically with Windows.' + #13#10 + #13#10 +
+      'That means it won''t track any desktop apps on your Media List until you ' +
+      'open it yourself - it can only see what''s running while it''s actually open. ' +
+      'You can turn this on later from the tray icon''s "Start with Windows" option.',
+      mbInformation, MB_OK);
+  end;
+end;
