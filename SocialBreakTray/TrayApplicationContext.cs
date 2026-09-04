@@ -301,7 +301,7 @@ public class TrayApplicationContext : ApplicationContext
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = "https://socialbreak.onrender.com/",
+                FileName = "https://social-break.com/",
                 UseShellExecute = true, // required to open a URL via the default browser, not launch it as an exe
             });
         }
