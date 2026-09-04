@@ -14,7 +14,7 @@ namespace SocialBreakTray.Api;
 /// </summary>
 public class SocialBreakApiClient
 {
-    private const string BaseUrl = "https://socialbreak.onrender.com";
+    private const string BaseUrl = "https://social-break.com";
 
     private readonly HttpClient _http;
     private string? _token;
