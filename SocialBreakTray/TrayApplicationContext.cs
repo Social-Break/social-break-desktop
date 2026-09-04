@@ -19,7 +19,7 @@ public class TrayApplicationContext : ApplicationContext
     // Not yet user-configurable in this version (see UsageAccumulator's
     // docstring) - matches the browser extension's own default resetHour.
     private const int ResetHour = 3;
-    private const int HeartbeatIntervalMs = 5000;
+    private const int HeartbeatIntervalMs = 1000;
     private const int SyncIntervalMs = 10 * 60 * 1000; // 10 minutes, matches the extension's reportUsage alarm
 
     private readonly NotifyIcon _trayIcon;
@@ -342,6 +342,7 @@ public class TrayApplicationContext : ApplicationContext
     {
         int h = totalSeconds / 3600;
         int m = (totalSeconds % 3600) / 60;
-        return h > 0 ? $"{h}h {m}m" : $"{m}m";
+        int s = totalSeconds % 60;
+        return h > 0 ? $"{h}h {m}m" : $"{m}m {s}s";
     }
 }
