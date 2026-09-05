@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Matches the app's own TFM: it references the WinForms project, so it
+         has to be a -windows target too. None of these tests touch a window,
+         a tray icon or the network - they only exercise the pure logic the
+         app deliberately keeps behind IForegroundWindowProvider /
+         IIdleTimeProvider and the two clock/path seams. -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <IsPackable>false</IsPackable>
+
+    <!-- The .NET 8 Desktop Runtime is not installed on every machine that
+         builds this (the .NET 10 SDK alone can compile net8.0-windows, but
+         the test host still needs *a* runtime to execute on). Rolling
+         forward lets `dotnet test` run on whatever newer major runtime is
+         present instead of failing with "You must install or update .NET". -->
+    <RollForward>LatestMajor</RollForward>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SocialBreakTray\SocialBreakTray.csproj" />
+  </ItemGroup>
+
+</Project>

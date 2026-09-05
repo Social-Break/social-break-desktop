@@ -79,14 +79,31 @@ output from the exact path above, so publishing first is not optional.
   Cutting a new release here does not update it: bump the tag in that view and deploy the
   website too, or the button keeps serving the previous build.
 
-## Manual verification checklist (run against each release)
+## Tests
 
-Business logic (`UsageAccumulator`'s week-rollover math, `LimitEvaluator`'s ported limit
-logic) is isolated behind `IForegroundWindowProvider`/`IIdleTimeProvider` specifically so
-it can be unit-tested with fakes via `dotnet test`, without a live desktop session -
-**there is still no test project**, so every item below is currently checked by hand.
-Adding one would let the first two categories be covered automatically; the rest need a
-real Windows machine either way:
+```
+dotnet test
+```
+
+`SocialBreakTray.Tests` covers the two pieces of pure logic that carry the most risk:
+
+- **`LimitEvaluator`** - the hand-port of `background.js`'s
+  `isLimitReached`/`getDomainLimit`/`getLogicalDjangoDay`. Ports drift, and this repo's
+  history already contains several "this rule silently never fired" fixes, so the tests
+  pin down all four plan types, the Monday=0..Sunday=6 remap, the `resetHour` shift, the
+  `window_is_block` inversion, and the reason-code strings shared with `block.html`.
+- **`UsageAccumulator`** - the daily/weekly rollover boundaries and the
+  persist-on-every-write durability, including the "relaunch after being killed must not
+  lose the week" case that `report-usage`'s snapshot-overwrite semantics make dangerous.
+
+Both classes take optional clock (and, for the accumulator, state-path) parameters that
+exist solely as test seams; every production call site passes neither and behaves exactly
+as before. The path seam is not optional cosmetics - without it a test run would overwrite
+the live `%APPDATA%\SocialBreak\usage.dat` and destroy a real week of tracked totals.
+
+Everything below still needs a real Windows machine and a real login:
+
+## Manual verification checklist (run against each release)
 
 - [ ] First launch shows the disclosure dialog once, then the login form.
 - [ ] Successful login stores a token and starts the tray icon/menu.

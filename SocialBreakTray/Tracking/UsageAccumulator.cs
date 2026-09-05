@@ -38,16 +38,28 @@ internal class AccumulatorState
 /// </summary>
 public class UsageAccumulator
 {
-    private static readonly string StatePath = Path.Combine(
+    private static readonly string DefaultStatePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SocialBreak", "usage.dat");
 
     private readonly int _resetHour;
+    private readonly string _statePath;
+    private readonly Func<DateTime> _now;
     private AccumulatorState _state;
 
-    public UsageAccumulator(int resetHour = 3)
+    /// <summary><paramref name="statePath"/> and <paramref name="now"/> are
+    /// test seams only - production constructs this with neither, which keeps
+    /// the real %APPDATA%\SocialBreak\usage.dat path and the real clock
+    /// exactly as before. They exist because the rollover boundaries below
+    /// are otherwise only observable by waiting for a real 3am (or a real
+    /// Monday), and because a test must never be able to overwrite the live
+    /// usage file - doing so would destroy a real week's tracked totals, for
+    /// the reasons spelled out in this class's summary.</summary>
+    public UsageAccumulator(int resetHour = 3, string? statePath = null, Func<DateTime>? now = null)
     {
         _resetHour = resetHour;
-        _state = Load();
+        _statePath = statePath ?? DefaultStatePath;
+        _now = now ?? (() => DateTime.Now);
+        _state = Load(_statePath);
         ApplyRolloverIfNeeded();
     }
 
@@ -73,7 +85,7 @@ public class UsageAccumulator
 
     private DateOnly LogicalToday()
     {
-        var shifted = DateTime.Now.AddHours(-_resetHour);
+        var shifted = _now().AddHours(-_resetHour);
         return DateOnly.FromDateTime(shifted);
     }
 
@@ -107,12 +119,12 @@ public class UsageAccumulator
         if (changed) Save();
     }
 
-    private static AccumulatorState Load()
+    private static AccumulatorState Load(string statePath)
     {
         try
         {
-            if (!File.Exists(StatePath)) return new AccumulatorState();
-            var json = File.ReadAllText(StatePath);
+            if (!File.Exists(statePath)) return new AccumulatorState();
+            var json = File.ReadAllText(statePath);
             return JsonSerializer.Deserialize<AccumulatorState>(json) ?? new AccumulatorState();
         }
         catch
@@ -131,9 +143,9 @@ public class UsageAccumulator
     {
         try
         {
-            var dir = Path.GetDirectoryName(StatePath)!;
+            var dir = Path.GetDirectoryName(_statePath)!;
             Directory.CreateDirectory(dir);
-            File.WriteAllText(StatePath, JsonSerializer.Serialize(_state));
+            File.WriteAllText(_statePath, JsonSerializer.Serialize(_state));
         }
         catch
         {
