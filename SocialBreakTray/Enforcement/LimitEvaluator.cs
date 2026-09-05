@@ -14,10 +14,17 @@ public static class LimitEvaluator
 {
     /// <summary>Mirrors getLogicalDjangoDay(resetHour) - Django's day-of-week
     /// convention is Monday=0..Sunday=6, unlike .NET's DayOfWeek
-    /// (Sunday=0..Saturday=6), so this remaps after shifting the clock.</summary>
-    public static int GetLogicalDjangoDay(int resetHour)
+    /// (Sunday=0..Saturday=6), so this remaps after shifting the clock.
+    ///
+    /// Every method here takes an optional <paramref name="now"/> purely as a
+    /// test seam: passing null (what all production callers do) reads the real
+    /// clock exactly as before. It exists so the ported rule semantics can be
+    /// asserted against a fixed date/time in unit tests, rather than only
+    /// being observable by waiting for a particular weekday or hour to come
+    /// around on a real machine.</summary>
+    public static int GetLogicalDjangoDay(int resetHour, DateTime? now = null)
     {
-        var shifted = DateTime.Now.AddHours(-resetHour);
+        var shifted = (now ?? DateTime.Now).AddHours(-resetHour);
         int dotNetDay = (int)shifted.DayOfWeek; // Sunday=0..Saturday=6
         return dotNetDay == 0 ? 6 : dotNetDay - 1; // -> Monday=0..Sunday=6
     }
@@ -39,7 +46,7 @@ public static class LimitEvaluator
     /// identifier right now (0 means "no daily limit applies" for plan
     /// types where that's meaningful - callers must not treat 0 as itself a
     /// reached limit).</summary>
-    public static int GetDailyLimitSeconds(string identifier, PlanDto? plan, int resetHour)
+    public static int GetDailyLimitSeconds(string identifier, PlanDto? plan, int resetHour, DateTime? now = null)
     {
         if (plan == null || plan.ActiveIdea == 0) return 0;
         if (plan.ActiveIdea == 1) return 0; // Complete Break has no separate daily concept - see IsLimitReached
@@ -55,7 +62,7 @@ public static class LimitEvaluator
         // practice, but harmless to check unconditionally here.
         if (plan.ActiveIdea == 3 || plan.ActiveIdea == 4)
         {
-            int currentDjangoDay = GetLogicalDjangoDay(resetHour);
+            int currentDjangoDay = GetLogicalDjangoDay(resetHour, now);
             var rule = plan.CustomRules.FirstOrDefault(r => r.Domain == identifier && r.DayOfWeek == currentDjangoDay);
             if (rule != null)
             {
@@ -75,10 +82,10 @@ public static class LimitEvaluator
     /// "no limit configured" for an unrestricted app, and dailyLimit > 0
     /// collapses both to "never reached". Complete Break (idea 1) never
     /// hits this path - it short-circuits in IsLimitReached instead.</summary>
-    public static bool IsBlockedToday(string identifier, PlanDto? plan, int resetHour)
+    public static bool IsBlockedToday(string identifier, PlanDto? plan, int resetHour, DateTime? now = null)
     {
         if (plan == null || (plan.ActiveIdea != 3 && plan.ActiveIdea != 4)) return false;
-        int currentDjangoDay = GetLogicalDjangoDay(resetHour);
+        int currentDjangoDay = GetLogicalDjangoDay(resetHour, now);
         var rule = plan.CustomRules.FirstOrDefault(r => r.Domain == identifier && r.DayOfWeek == currentDjangoDay);
         return rule?.IsCompletelyBlocked ?? false;
     }
@@ -95,14 +102,14 @@ public static class LimitEvaluator
     /// wall-clock time (DateTime.Now.TimeOfDay), never resetHour-shifted. A
     /// "18:00-21:00" window means literal 6-9pm regardless of when this
     /// user's tracked day happens to reset.</summary>
-    public static bool IsBlockedByWindowNow(string identifier, PlanDto? plan, int resetHour)
+    public static bool IsBlockedByWindowNow(string identifier, PlanDto? plan, int resetHour, DateTime? now = null)
     {
         if (plan == null || (plan.ActiveIdea != 3 && plan.ActiveIdea != 4)) return false;
-        int currentDjangoDay = GetLogicalDjangoDay(resetHour);
+        int currentDjangoDay = GetLogicalDjangoDay(resetHour, now);
         var rule = plan.CustomRules.FirstOrDefault(r => r.Domain == identifier && r.DayOfWeek == currentDjangoDay);
         if (rule?.WindowStart is not { } start || rule.WindowEnd is not { } end) return false;
 
-        var nowTimeOfDay = DateTime.Now.TimeOfDay;
+        var nowTimeOfDay = (now ?? DateTime.Now).TimeOfDay;
         bool insideWindow = nowTimeOfDay >= start && nowTimeOfDay < end;
         return rule.WindowIsBlock ? insideWindow : !insideWindow;
     }
@@ -121,19 +128,19 @@ public static class LimitEvaluator
     /// <summary>Returns a BlockReason code, or null when not blocked. Every
     /// existing caller only ever checked this for null/non-null - unchanged
     /// by this returning a reason string instead of a plain bool.</summary>
-    public static string? IsLimitReached(string identifier, PlanDto? plan, int dailySecondsSoFar, int weeklySecondsSoFar, int resetHour)
+    public static string? IsLimitReached(string identifier, PlanDto? plan, int dailySecondsSoFar, int weeklySecondsSoFar, int resetHour, DateTime? now = null)
     {
         if (plan == null || plan.ActiveIdea == 0) return null;
         if (plan.ActiveIdea == 1) return BlockReason.CompleteBreak; // Complete Break: always blocked, no accumulation needed
-        if (IsBlockedToday(identifier, plan, resetHour)) return BlockReason.BlockedDay;
-        if (IsBlockedByWindowNow(identifier, plan, resetHour)) return BlockReason.TimeWindow;
+        if (IsBlockedToday(identifier, plan, resetHour, now)) return BlockReason.BlockedDay;
+        if (IsBlockedByWindowNow(identifier, plan, resetHour, now)) return BlockReason.TimeWindow;
 
         int weeklyLimitSeconds = GetWeeklyLimitSeconds(identifier, plan);
         bool weeklyReached = weeklyLimitSeconds > 0 && weeklySecondsSoFar >= weeklyLimitSeconds;
 
         if (plan.ActiveIdea == 2) return weeklyReached ? BlockReason.WeeklyLimit : null;
 
-        int dailyLimit = GetDailyLimitSeconds(identifier, plan, resetHour);
+        int dailyLimit = GetDailyLimitSeconds(identifier, plan, resetHour, now);
         bool dailyReached = dailyLimit > 0 && dailySecondsSoFar >= dailyLimit;
 
         if (plan.ActiveIdea == 3) return dailyReached ? BlockReason.DailyLimit : null;
