@@ -1,3 +1,5 @@
+using SocialBreakTray.Ui;
+
 namespace SocialBreakTray.Onboarding;
 
 /// <summary>
@@ -18,12 +20,17 @@ public class DisclosureForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        BackColor = Color.FromArgb(0x1e, 0x1e, 0x2e);
+        BackColor = Theme.Bg;
+        // Keeps the system title bar (this is a short-lived
+        // pre-login dialog, not a main window), but recolors it -
+        // Windows draws that bar light regardless of the client
+        // area behind it unless asked otherwise. See Theme.
+        Theme.ApplySystemDarkTitleBar(this);
 
         var heading = new Label
         {
             Text = "What this app does",
-            ForeColor = Color.FromArgb(0xcd, 0xd6, 0xf4),
+            ForeColor = Theme.TextPrimary,
             Font = new Font("Segoe UI", 13, FontStyle.Bold),
             AutoSize = true,
         };
@@ -48,7 +55,7 @@ public class DisclosureForm : Form
                 "you're away from your computer, and your login is encrypted on this device and never " +
                 "leaves it in plain text.\r\n\r\n" +
                 "You can pause tracking, log out, or quit entirely at any time from the tray icon.",
-            ForeColor = Color.FromArgb(0xa6, 0xad, 0xc8),
+            ForeColor = Theme.TextSecondary,
             AutoSize = true,
             MaximumSize = new Size(400, 0),
         };
@@ -58,7 +65,7 @@ public class DisclosureForm : Form
             Text = "I Understand, Continue",
             AutoSize = false,
             Size = new Size(400, 34),
-            BackColor = Color.FromArgb(0x4c, 0xaf, 0x50),
+            BackColor = Theme.ButtonGreen,
             ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
             Margin = new Padding(0, 20, 0, 0),

@@ -3,6 +3,7 @@ using SocialBreakTray.Api;
 using SocialBreakTray.Auth;
 using SocialBreakTray.Enforcement;
 using SocialBreakTray.Tracking;
+using SocialBreakTray.Ui;
 
 namespace SocialBreakTray;
 
@@ -28,18 +29,15 @@ namespace SocialBreakTray;
 /// without needing any push/event wiring back from TrayApplicationContext.
 /// Cards are kept and updated in place rather than rebuilt every tick, to
 /// avoid flicker.
+///
+/// Chrome comes from DarkForm: the caption bar is drawn by the app in the
+/// same gradient as the banner below it, so the two read as one header
+/// instead of a themed window wearing a white Windows title bar.
 /// </summary>
-public class LiveTrackingForm : Form
+internal class LiveTrackingForm : DarkForm
 {
-    private static readonly Color BgColor = Color.FromArgb(0x1e, 0x1e, 0x2e);
-    private static readonly Color CardColor = Color.FromArgb(0x29, 0x2c, 0x3c);
-    private static readonly Color CardLiveColor = Color.FromArgb(0x24, 0x35, 0x2b);
-    private static readonly Color TextPrimary = Color.FromArgb(0xcd, 0xd6, 0xf4);
-    private static readonly Color TextSecondary = Color.FromArgb(0xa6, 0xad, 0xc8);
-    private static readonly Color TextMuted = Color.FromArgb(0x6c, 0x70, 0x86);
-    private static readonly Color AccentGreen = Color.FromArgb(0xa6, 0xe3, 0xa1);
-    private static readonly Color AccentYellow = Color.FromArgb(0xf9, 0xe2, 0xaf);
-    private static readonly Color AccentRed = Color.FromArgb(0xf3, 0x8b, 0xa8);
+    private const int ContentWidth = 460;
+    private const int ContentHeight = 480;
 
     private readonly UsageAccumulator _accumulator;
     private readonly Func<List<MediaItemDto>> _getTrackedApps;
@@ -54,6 +52,7 @@ public class LiveTrackingForm : Form
 
     public LiveTrackingForm(UsageAccumulator accumulator, Func<List<MediaItemDto>> getTrackedApps,
         Func<string?> getCurrentlyTrackedUrl, Func<PlanDto?> getPlan, int resetHour)
+        : base("Social Break - Live Tracking", showMinimize: true)
     {
         _accumulator = accumulator;
         _getTrackedApps = getTrackedApps;
@@ -61,36 +60,26 @@ public class LiveTrackingForm : Form
         _getPlan = getPlan;
         _resetHour = resetHour;
 
-        Text = "Social Break - Live Tracking";
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false;
-        MinimizeBox = true;
-        StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(460, 480);
-        BackColor = BgColor;
+        SetContentSize(ContentWidth, ContentHeight);
 
-        var header = new Panel { Location = new Point(0, 0), Size = new Size(460, 76) };
+        var header = new Panel { Location = new Point(0, 0), Size = new Size(ContentWidth, 76) };
         header.Paint += (_, e) =>
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var gradient = new LinearGradientBrush(
-                header.ClientRectangle,
-                Color.FromArgb(0x20, 0x1c, 0x33),
-                Color.FromArgb(0x2a, 0x22, 0x45),
-                LinearGradientMode.Horizontal);
+            // Same brush and same width as the caption bar directly above,
+            // so the horizontal gradient continues across the seam.
+            using var gradient = Theme.CreateHeaderBrush(header.ClientRectangle);
             e.Graphics.FillRectangle(gradient, header.ClientRectangle);
 
-            var icon = Icon.ExtractAssociatedIcon(Environment.ProcessPath ?? Application.ExecutablePath);
-            if (icon != null)
-            {
-                e.Graphics.DrawIcon(icon, new Rectangle(20, 18, 40, 40));
-            }
+            // 40px has no matching frame in app.ico, so this resamples the
+            // 256px one rather than stretching the 32px one (see Theme).
+            Theme.DrawAppIcon(e.Graphics, new Rectangle(20, 18, 40, 40));
         };
 
         var title = new Label
         {
             Text = "Live Tracking",
-            ForeColor = TextPrimary,
+            ForeColor = Theme.TextPrimary,
             Font = new Font("Segoe UI", 14, FontStyle.Bold),
             AutoSize = true,
             Location = new Point(72, 16),
@@ -99,7 +88,7 @@ public class LiveTrackingForm : Form
         var subtitle = new Label
         {
             Text = "Desktop apps counted against your Media List",
-            ForeColor = TextSecondary,
+            ForeColor = Theme.TextSecondary,
             Font = new Font("Segoe UI", 8.5f),
             AutoSize = true,
             Location = new Point(72, 44),
@@ -115,43 +104,54 @@ public class LiveTrackingForm : Form
             AutoScroll = true,
             Location = new Point(20, 92),
             Size = new Size(420, 300),
-            BackColor = BgColor,
+            BackColor = Theme.Bg,
         };
 
         _emptyLabel = new Label
         {
             Text = "No desktop apps on your Media List yet - add one on the website.",
-            ForeColor = TextMuted,
+            ForeColor = Theme.TextMuted,
             AutoSize = true,
             MaximumSize = new Size(400, 0),
             Visible = false,
         };
 
+        // A hairline above the footer, separating live data from the
+        // static explanatory text under it.
+        var divider = new Panel
+        {
+            Location = new Point(20, 396),
+            Size = new Size(420, 1),
+            BackColor = Theme.Border,
+        };
+
         var note = new Label
         {
             Text = "Limits, rules, and your Media List are managed on the website.",
-            ForeColor = TextMuted,
+            ForeColor = Theme.TextMuted,
             Font = new Font("Segoe UI", 8),
             AutoSize = true,
             MaximumSize = new Size(420, 0),
-            Location = new Point(20, 404),
+            Location = new Point(20, 410),
         };
 
         // Only affects whether this window auto-opens on launch (see
         // TrayApplicationContext.InitializeAsync) - opening it from the
         // tray menu or double-clicking the icon always shows it regardless,
         // since that's an explicit request, not the automatic popup.
-        var hideCheckbox = new CheckBox
+        // DarkCheckBox rather than a stock CheckBox, whose system-drawn
+        // glyph stays a bright light-theme square whatever colors it's
+        // given (see DarkCheckBox). Explicitly sized, since it owner-draws.
+        var hideCheckbox = new DarkCheckBox
         {
             Text = "Don't show this automatically on startup",
-            ForeColor = TextSecondary,
-            AutoSize = true,
             Location = new Point(20, 434),
+            Size = new Size(320, 20),
             Checked = TokenStore.IsWelcomeHiddenOnStartup(),
         };
         hideCheckbox.CheckedChanged += (_, _) => TokenStore.SetHideWelcomeOnStartup(hideCheckbox.Checked);
 
-        Controls.AddRange(new Control[] { header, _cardList, _emptyLabel, note, hideCheckbox });
+        Content.Controls.AddRange(new Control[] { header, _cardList, _emptyLabel, divider, note, hideCheckbox });
 
         _refreshTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         _refreshTimer.Tick += (_, _) => RefreshCards();
@@ -201,18 +201,6 @@ public class LiveTrackingForm : Form
         }
     }
 
-    private static GraphicsPath RoundedRect(Rectangle rect, int radius)
-    {
-        int d = radius * 2;
-        var path = new GraphicsPath();
-        path.AddArc(rect.X, rect.Y, d, d, 180, 90);
-        path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
-        path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
-        path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
-        path.CloseFigure();
-        return path;
-    }
-
     /// <summary>One tracked app's row - an avatar badge, name, a LIVE badge
     /// when active, and either a progress bar (when a real daily limit
     /// applies) or plain totals otherwise. Kept alive and updated in place
@@ -232,8 +220,8 @@ public class LiveTrackingForm : Form
             _appName = appName;
             Size = new Size(420, 76);
             Margin = new Padding(0, 0, 0, 10);
-            BackColor = CardColor;
-            Region = new Region(RoundedRect(new Rectangle(0, 0, Width, Height), 12));
+            BackColor = Theme.Card;
+            Region = new Region(Theme.RoundedRect(new Rectangle(0, 0, Width, Height), 12));
 
             var avatar = new Panel
             {
@@ -244,7 +232,7 @@ public class LiveTrackingForm : Form
             avatar.Paint += (_, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using var bg = new SolidBrush(Color.FromArgb(0x45, 0x47, 0x5a));
+                using var bg = new SolidBrush(Theme.Avatar);
                 e.Graphics.FillEllipse(bg, 0, 0, 39, 39);
                 var letter = _appName.Length > 0 ? _appName[..1].ToUpperInvariant() : "?";
                 using var font = new Font("Segoe UI", 13, FontStyle.Bold);
@@ -255,7 +243,7 @@ public class LiveTrackingForm : Form
             _nameLabel = new Label
             {
                 Text = appName,
-                ForeColor = TextPrimary,
+                ForeColor = Theme.TextPrimary,
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
                 AutoSize = true,
                 Location = new Point(68, 14),
@@ -265,7 +253,7 @@ public class LiveTrackingForm : Form
             _liveLabel = new Label
             {
                 Text = "●  LIVE",
-                ForeColor = AccentGreen,
+                ForeColor = Theme.AccentGreen,
                 Font = new Font("Segoe UI", 8, FontStyle.Bold),
                 AutoSize = true,
                 BackColor = Color.Transparent,
@@ -275,7 +263,7 @@ public class LiveTrackingForm : Form
 
             _timeLabel = new Label
             {
-                ForeColor = TextSecondary,
+                ForeColor = Theme.TextSecondary,
                 Font = new Font("Segoe UI", 8.5f),
                 AutoSize = true,
                 Location = new Point(68, 36),
@@ -294,7 +282,7 @@ public class LiveTrackingForm : Form
 
         public void UpdateData(int dailySeconds, int weeklySeconds, int dailyLimitSeconds, bool isLive)
         {
-            BackColor = isLive ? CardLiveColor : CardColor;
+            BackColor = isLive ? Theme.CardLive : Theme.Card;
             _liveLabel.Visible = isLive;
 
             if (dailyLimitSeconds > 0)
@@ -327,15 +315,15 @@ public class LiveTrackingForm : Form
         protected override void OnPaint(PaintEventArgs e)
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var trackBrush = new SolidBrush(Color.FromArgb(0x11, 0x11, 0x1b));
-            using var trackPath = RoundedRect(new Rectangle(0, 0, Width, Height), Height / 2);
+            using var trackBrush = new SolidBrush(Theme.Well);
+            using var trackPath = Theme.RoundedRect(new Rectangle(0, 0, Width, Height), Height / 2);
             e.Graphics.FillPath(trackBrush, trackPath);
 
             if (Percent <= 0) return;
-            var fillColor = Percent < 0.7 ? AccentGreen : Percent < 0.9 ? AccentYellow : AccentRed;
+            var fillColor = Percent < 0.7 ? Theme.AccentGreen : Percent < 0.9 ? Theme.AccentYellow : Theme.AccentRed;
             int fillWidth = Math.Max(Height, (int)(Width * Percent));
             using var fillBrush = new SolidBrush(fillColor);
-            using var fillPath = RoundedRect(new Rectangle(0, 0, fillWidth, Height), Height / 2);
+            using var fillPath = Theme.RoundedRect(new Rectangle(0, 0, fillWidth, Height), Height / 2);
             e.Graphics.FillPath(fillBrush, fillPath);
         }
     }
