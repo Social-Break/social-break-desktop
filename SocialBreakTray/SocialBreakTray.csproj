@@ -12,6 +12,12 @@
     <!-- No console window behind the tray icon - this is a background app,
          not a CLI tool. -->
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <!-- Keep in step with installer/SocialBreakTray.iss's MyAppVersion and
+         the release tag. Without this the exe's file properties reported
+         1.0.0.0 for every build, whatever version it actually shipped as,
+         which makes "which build is this?" unanswerable from a user's
+         machine. -->
+    <Version>1.0.3</Version>
   </PropertyGroup>
 
   <ItemGroup>
