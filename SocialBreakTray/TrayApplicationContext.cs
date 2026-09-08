@@ -3,6 +3,7 @@ using SocialBreakTray.Auth;
 using SocialBreakTray.Enforcement;
 using SocialBreakTray.Onboarding;
 using SocialBreakTray.Tracking;
+using SocialBreakTray.Ui;
 
 namespace SocialBreakTray;
 
@@ -50,14 +51,32 @@ public class TrayApplicationContext : ApplicationContext
     private ToolStripMenuItem _statusMenuItem = new();
     private ToolStripMenuItem _startWithWindowsItem = new();
 
+    // Set once login/sync have completed - see OnShowRequestedByOtherInstance
+    // for why a relaunch must not pop the dashboard before then.
+    private bool _initialized;
+
+    // How a second launch of the exe (double-clicking the desktop or Start
+    // menu shortcut while the app is already in the tray) asks the running
+    // instance to surface its window. See Program.cs, which signals this
+    // instead of just exiting.
+    private readonly EventWaitHandle _showRequest =
+        new(false, EventResetMode.AutoReset, Program.ShowRequestEventName);
+
+    // A handle-owning control created on the UI thread, purely so the
+    // waiter thread below has something to marshal back through - an
+    // ApplicationContext has no window of its own to BeginInvoke on.
+    private readonly Control _uiMarshal = new();
+
     public TrayApplicationContext()
     {
         _trayIcon = new NotifyIcon
         {
-            // Reads back the icon the .csproj's <ApplicationIcon> already
-            // compiled into this exe, rather than shipping app.ico as a
-            // second loose file next to a single-file publish output.
-            Icon = Icon.ExtractAssociatedIcon(Environment.ProcessPath ?? Application.ExecutablePath) ?? SystemIcons.Application,
+            // The full multi-frame icon (see Theme), so the shell picks the
+            // real 16x16 frame for the notification area. The previous
+            // ExtractAssociatedIcon call returned only a 32x32 frame, which
+            // the tray then squashed to 16 - visibly soft next to every
+            // other tray icon.
+            Icon = Theme.GetIcon(SystemInformation.SmallIconSize.Width) ?? SystemIcons.Application,
             Visible = true,
             Text = "Social Break - not logged in",
         };
@@ -79,6 +98,8 @@ public class TrayApplicationContext : ApplicationContext
         // message loop is actually pumping, which guarantees
         // InitializeAsync() - and any exit it triggers - runs after
         // Application.Run() is live.
+        StartShowRequestListener();
+
         var startupTimer = new System.Windows.Forms.Timer { Interval = 1 };
         startupTimer.Tick += async (_, _) =>
         {
@@ -89,9 +110,56 @@ public class TrayApplicationContext : ApplicationContext
         startupTimer.Start();
     }
 
+    /// <summary>Waits for a second instance to ask us to show ourselves.
+    /// A blocking background thread rather than a polling timer, so the
+    /// window comes up immediately on the double-click rather than up to a
+    /// tick later.</summary>
+    private void StartShowRequestListener()
+    {
+        _ = _uiMarshal.Handle; // force handle creation while we're on the UI thread
+
+        var listener = new Thread(() =>
+        {
+            while (true)
+            {
+                _showRequest.WaitOne();
+                try
+                {
+                    _uiMarshal.BeginInvoke(OnShowRequestedByOtherInstance);
+                }
+                catch (ObjectDisposedException)
+                {
+                    return; // app is shutting down
+                }
+                catch (InvalidOperationException)
+                {
+                    return; // handle already gone
+                }
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "SocialBreak show-request listener",
+        };
+        listener.Start();
+    }
+
+    private void OnShowRequestedByOtherInstance()
+    {
+        // Ignored until the app is past disclosure/login. Those are modal
+        // dialogs, and opening a modeless window behind one would strand it
+        // unreachable until the dialog is dealt with.
+        if (!_initialized) return;
+        ShowLiveTracking();
+    }
+
     private ContextMenuStrip BuildMenu()
     {
-        var menu = new ContextMenuStrip();
+        // Themed rather than left on the WinForms default: the tray menu is
+        // the surface a user touches every time they interact with this app,
+        // and a white Office-2003 menu hanging off a dark app is the most
+        // visible seam it has. See DarkMenu.
+        var menu = DarkMenu.Apply(new ContextMenuStrip());
 
         _statusMenuItem = new ToolStripMenuItem("Social Break") { Enabled = false };
         menu.Items.Add(_statusMenuItem);
@@ -146,6 +214,8 @@ public class TrayApplicationContext : ApplicationContext
         {
             ShowLiveTracking();
         }
+
+        _initialized = true;
     }
 
     private static void ShowAbout()
@@ -282,17 +352,32 @@ public class TrayApplicationContext : ApplicationContext
         SetTrayStatus("Paused");
     }
 
+    /// <summary>Opens the Live Tracking window, or brings the existing one
+    /// back to the front if it's already open.</summary>
     private void ShowLiveTracking()
     {
-        if (_liveTrackingForm is { IsDisposed: false })
+        if (_liveTrackingForm is { IsDisposed: false } existing)
         {
-            _liveTrackingForm.Activate();
+            // Activate() on its own does nothing to a minimized window - it
+            // moves focus, it doesn't restore. So every "open the dashboard"
+            // gesture (tray double-click, the menu item, relaunching the
+            // shortcut) silently no-opped once the window had been minimized,
+            // which reads as the app being broken. WindowState has to be put
+            // back explicitly first.
+            if (existing.WindowState == FormWindowState.Minimized)
+            {
+                existing.WindowState = FormWindowState.Normal;
+            }
+            if (!existing.Visible) existing.Show();
+            existing.Activate();
+            existing.BringToFront();
             return;
         }
 
         _liveTrackingForm = new LiveTrackingForm(_accumulator, () => _trackedApps, () => _currentlyTrackingUrl, () => _plan, ResetHour);
         _liveTrackingForm.FormClosed += (_, _) => _liveTrackingForm = null;
         _liveTrackingForm.Show();
+        _liveTrackingForm.Activate();
     }
 
     private static void OpenWebsite()

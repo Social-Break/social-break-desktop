@@ -14,4 +14,15 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- <ApplicationIcon> only stamps the icon into the exe's Win32 resource
+         group, which is reachable at runtime solely via
+         Icon.ExtractAssociatedIcon - and that API hands back a single 32x32
+         frame, whatever sizes the .ico actually holds. Everything drawn from
+         it (tray icon, caption, header) was therefore a rescale of that one
+         frame. Embedding the file as well lets Theme pick the real 16/32/48/
+         256 frames. -->
+    <EmbeddedResource Include="app.ico" LogicalName="SocialBreakTray.app.ico" />
+  </ItemGroup>
+
 </Project>

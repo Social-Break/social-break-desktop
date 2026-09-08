@@ -1,4 +1,5 @@
 using SocialBreakTray.Api;
+using SocialBreakTray.Ui;
 
 namespace SocialBreakTray.Auth;
 
@@ -30,16 +31,31 @@ public class LoginForm : Form
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
         ClientSize = new Size(340, 230);
-        BackColor = Color.FromArgb(0x1e, 0x1e, 0x2e);
+        BackColor = Theme.Bg;
+        // Keeps the system title bar (this is a short-lived
+        // pre-login dialog, not a main window), but recolors it -
+        // Windows draws that bar light regardless of the client
+        // area behind it unless asked otherwise. See Theme.
+        Theme.ApplySystemDarkTitleBar(this);
 
         var introLabel = new Label
         {
             Text = "Log in with your Social Break account to connect this device.",
-            ForeColor = Color.FromArgb(0xa6, 0xad, 0xc8),
+            ForeColor = Theme.TextSecondary,
             AutoSize = false,
             Location = new Point(16, 14),
             Size = new Size(308, 40),
         };
+
+        // Left at their system default the input boxes render as bright
+        // white rectangles on this background - the same mismatch the
+        // title bar had, just inside the client area.
+        foreach (var box in new[] { _usernameBox, _passwordBox })
+        {
+            box.BackColor = Theme.Surface;
+            box.ForeColor = Theme.TextPrimary;
+            box.BorderStyle = BorderStyle.FixedSingle;
+        }
 
         var usernameLabel = MakeFieldLabel("Username", 64);
         _usernameBox.Location = new Point(16, 84);
@@ -53,7 +69,7 @@ public class LoginForm : Form
         _loginButton.Text = "Log In";
         _loginButton.Location = new Point(16, 168);
         _loginButton.Size = new Size(308, 32);
-        _loginButton.BackColor = Color.FromArgb(0x4c, 0xaf, 0x50);
+        _loginButton.BackColor = Theme.ButtonGreen;
         _loginButton.ForeColor = Color.White;
         _loginButton.FlatStyle = FlatStyle.Flat;
         _loginButton.FlatAppearance.BorderSize = 0;
@@ -71,7 +87,7 @@ public class LoginForm : Form
     private static Label MakeFieldLabel(string text, int y) => new()
     {
         Text = text,
-        ForeColor = Color.FromArgb(0xa6, 0xad, 0xc8),
+        ForeColor = Theme.TextSecondary,
         Location = new Point(16, y),
         AutoSize = true,
     };
