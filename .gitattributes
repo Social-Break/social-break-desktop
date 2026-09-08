@@ -1,0 +1,22 @@
+# Line endings, declared rather than left to each machine's git config.
+#
+# Without this, git compared raw bytes: the repository stores LF, the working
+# tree had drifted to CRLF, and so 24 files it had never touched showed as
+# modified forever. That noise hides real changes and makes it easy to commit
+# whole-file line-ending churn by accident.
+#
+# text=auto lets git detect text files and store them normalised as LF, which
+# is what this repository already contains. eol=crlf checks them out with CRLF,
+# which is what Visual Studio and the rest of the Windows toolchain expect - so
+# the working tree keeps the endings it has now and git stops seeing a
+# difference that was never a change.
+* text=auto eol=crlf
+
+# Binaries must never be touched: normalising an icon or an installer asset
+# would corrupt it.
+*.png binary
+*.ico binary
+*.jpg binary
+*.exe binary
+*.dll binary
+*.snk binary
