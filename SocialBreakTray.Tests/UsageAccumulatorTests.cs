@@ -295,4 +295,87 @@ public class UsageAccumulatorTests : IDisposable
     {
         Assert.Empty(NewAccumulator().GetWeeklyMinutes());
     }
+
+    // ---- GetMinutesByDay: the per-day payload report_media_usage now accepts.
+    //      A weekly total can only answer "this week"; days answer any range.
+
+    [Fact]
+    public void MinutesByDay_KeysTodayByItsLogicalDate()
+    {
+        var acc = NewAccumulator();
+        acc.AddSeconds(App, 600); // 10 minutes
+
+        var byDay = acc.GetMinutesByDay();
+
+        Assert.Equal(10, byDay[App]["2026-09-02"]);
+    }
+
+    [Fact]
+    public void MinutesByDay_UsesLogicalDayNotCalendarDate()
+    {
+        // 1am Thursday is still Wednesday's usage, because counters roll over
+        // at 3am. Filing it under the calendar date would move a late night
+        // onto the wrong day.
+        _clock = new DateTime(2026, 9, 3, 1, 0, 0);
+        var acc = NewAccumulator();
+        acc.AddSeconds(App, 600);
+
+        Assert.Equal(10, acc.GetMinutesByDay()[App]["2026-09-02"]);
+    }
+
+    [Fact]
+    public void DayRollover_KeepsTheFinishedDayInsteadOfDiscardingIt()
+    {
+        var acc = NewAccumulator();
+        acc.AddSeconds(App, 600);          // Wednesday
+
+        _clock = new DateTime(2026, 9, 3, 12, 0, 0);  // Thursday noon
+        acc.AddSeconds(App, 300);          // 5 minutes today
+
+        var byDay = acc.GetMinutesByDay();
+
+        // The old behaviour cleared DailySeconds at rollover, which would have
+        // erased Wednesday entirely for anyone leaving the tray app running.
+        Assert.Equal(10, byDay[App]["2026-09-02"]);
+        Assert.Equal(5, byDay[App]["2026-09-03"]);
+    }
+
+    [Fact]
+    public void FinishedDaysSurviveARestartBeforeTheyAreReported()
+    {
+        var first = NewAccumulator();
+        first.AddSeconds(App, 600);
+
+        _clock = new DateTime(2026, 9, 3, 12, 0, 0);
+        first.AddSeconds(App, 60);         // triggers the rollover and a save
+
+        // A fresh instance reads the same state file, as it would after the
+        // machine restarted overnight.
+        var second = NewAccumulator();
+        Assert.Equal(10, second.GetMinutesByDay()[App]["2026-09-02"]);
+    }
+
+    [Fact]
+    public void ClearPendingDays_DropsOnlyWhatWasReported()
+    {
+        var acc = NewAccumulator();
+        acc.AddSeconds(App, 600);                      // Wednesday
+        _clock = new DateTime(2026, 9, 3, 12, 0, 0);
+        acc.AddSeconds(App, 300);                      // Thursday
+
+        acc.ClearPendingDays(new[] { "2026-09-02" });
+
+        var byDay = acc.GetMinutesByDay();
+        Assert.False(byDay[App].ContainsKey("2026-09-02"));
+        Assert.Equal(5, byDay[App]["2026-09-03"]);     // today is untouched
+    }
+
+    [Fact]
+    public void MinutesByDay_SkipsAppsWithLessThanHalfAMinute()
+    {
+        var acc = NewAccumulator();
+        acc.AddSeconds(App, 20);  // rounds to 0 minutes
+
+        Assert.Empty(acc.GetMinutesByDay());
+    }
 }
