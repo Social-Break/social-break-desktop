@@ -6,6 +6,13 @@ internal class AccumulatorState
 {
     public Dictionary<string, int> DailySeconds { get; set; } = new();
     public Dictionary<string, int> WeeklySeconds { get; set; } = new();
+
+    /// <summary>Finished days that haven't reached the server yet, keyed by
+    /// logical date then identifier. The rollover clears DailySeconds, which was
+    /// harmless while only a weekly total was reported - but a day that ends
+    /// while the app is running would otherwise be erased before it was ever
+    /// sent as a day. Held here, on disk, until a report succeeds.</summary>
+    public Dictionary<string, Dictionary<string, int>> PendingDays { get; set; } = new();
     public string? LogicalDay { get; set; }       // ISO date string, e.g. "2026-08-07"
     public string? LogicalWeekMonday { get; set; } // ISO date string of that week's Monday
 }
@@ -83,6 +90,63 @@ public class UsageAccumulator
         return _state.WeeklySeconds.ToDictionary(kv => kv.Key, kv => (int)Math.Round(kv.Value / 60.0));
     }
 
+    /// <summary>Minutes per identifier per logical day, for the daily payload
+    /// report_media_usage now accepts. Includes today plus any finished days
+    /// still waiting to be sent, so an app that was closed overnight still
+    /// delivers the day it missed.</summary>
+    public Dictionary<string, Dictionary<string, int>> GetMinutesByDay()
+    {
+        ApplyRolloverIfNeeded();
+        var result = new Dictionary<string, Dictionary<string, int>>();
+
+        void Add(string identifier, string day, int seconds)
+        {
+            var minutes = (int)Math.Round(seconds / 60.0);
+            if (minutes <= 0) return;
+            if (!result.TryGetValue(identifier, out var days))
+            {
+                days = new Dictionary<string, int>();
+                result[identifier] = days;
+            }
+            days[day] = minutes;
+        }
+
+        foreach (var (day, perApp) in _state.PendingDays)
+        {
+            foreach (var kv in perApp) Add(kv.Key, day, kv.Value);
+        }
+        if (_state.LogicalDay is { Length: > 0 } today)
+        {
+            foreach (var kv in _state.DailySeconds) Add(kv.Key, today, kv.Value);
+        }
+        return result;
+    }
+
+    /// <summary>Drops finished days once the server has them. Only called after
+    /// a successful report, so a failed send leaves them on disk to try again -
+    /// the same guarantee the weekly totals already had.</summary>
+    public void ClearPendingDays(IEnumerable<string> days)
+    {
+        bool changed = false;
+        foreach (var day in days)
+        {
+            if (_state.PendingDays.Remove(day)) changed = true;
+        }
+        if (changed) Save();
+    }
+
+    /// <summary>Anything older than this is past the point of being useful and
+    /// would otherwise grow without bound if the server were unreachable for a
+    /// long time.</summary>
+    private void PrunePendingDays(DateOnly today)
+    {
+        var cutoff = today.AddDays(-30);
+        var stale = _state.PendingDays.Keys
+            .Where(k => !DateOnly.TryParse(k, out var parsed) || parsed < cutoff)
+            .ToList();
+        foreach (var key in stale) _state.PendingDays.Remove(key);
+    }
+
     private DateOnly LogicalToday()
     {
         var shifted = _now().AddHours(-_resetHour);
@@ -106,6 +170,23 @@ public class UsageAccumulator
         bool changed = false;
         if (_state.LogicalDay != todayStr)
         {
+            // Set the finished day aside before clearing it. Without this the
+            // 3am rollover would throw away a whole day of tracked time for
+            // anyone who leaves the tray app running overnight - which is
+            // most people, since it starts with Windows.
+            if (_state.LogicalDay is { Length: > 0 } endedDay && _state.DailySeconds.Count > 0)
+            {
+                if (!_state.PendingDays.TryGetValue(endedDay, out var bucket))
+                {
+                    bucket = new Dictionary<string, int>();
+                    _state.PendingDays[endedDay] = bucket;
+                }
+                foreach (var kv in _state.DailySeconds)
+                {
+                    bucket[kv.Key] = bucket.TryGetValue(kv.Key, out var existing) ? existing + kv.Value : kv.Value;
+                }
+            }
+            PrunePendingDays(today);
             _state.DailySeconds.Clear();
             _state.LogicalDay = todayStr;
             changed = true;

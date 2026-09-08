@@ -65,16 +65,19 @@ public class SocialBreakApiClient
     }
 
     /// <summary>
-    /// Flat {identifier: minutes} snapshot of this week's cumulative totals -
-    /// matches report_media_usage's exact expected payload shape in
-    /// core/views.py. This is a snapshot overwrite server-side, not a delta,
-    /// so the caller must always send the full current weekly total, never
-    /// just "what changed since last time".
+    /// {identifier: {"yyyy-MM-dd": minutes}} - one figure per app per logical
+    /// day, which is what report_media_usage now accepts alongside the older
+    /// flat weekly shape. Days let the server answer any date range; a weekly
+    /// total could only ever answer "this week".
+    ///
+    /// Still a snapshot overwrite server-side, per day rather than per week, so
+    /// re-sending a day the server already has replaces it instead of adding to
+    /// it and a retry can't double-count.
     /// </summary>
-    public async Task<ReportUsageResponse?> ReportUsageAsync(Dictionary<string, int> minutesByIdentifier, CancellationToken ct = default)
+    public async Task<ReportUsageResponse?> ReportUsageAsync(Dictionary<string, Dictionary<string, int>> minutesByDay, CancellationToken ct = default)
     {
-        if (minutesByIdentifier.Count == 0) return null;
-        using var response = await _http.PostAsJsonAsync("/api/report-usage/", minutesByIdentifier, ct);
+        if (minutesByDay.Count == 0) return null;
+        using var response = await _http.PostAsJsonAsync("/api/report-usage/", minutesByDay, ct);
         return await response.Content.ReadFromJsonAsync<ReportUsageResponse>(cancellationToken: ct);
     }
 
