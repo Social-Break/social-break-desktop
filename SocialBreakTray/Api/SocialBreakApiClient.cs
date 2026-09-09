@@ -96,6 +96,41 @@ public class SocialBreakApiClient
         return await ReadLoginResultAsync(response, "That code didn't work. Get a fresh one from the website.", ct);
     }
 
+    /// <summary>
+    /// Starts a "sign in with your browser" request. Nothing is authenticated
+    /// yet - this just reserves a slot and gets back the page to open and the
+    /// secret to poll with.
+    /// </summary>
+    public async Task<DeviceAuthStartResponse?> StartDeviceAuthAsync(CancellationToken ct = default)
+    {
+        var payload = new { client_type = "desktop_app" };
+        using var response = await _http.PostAsJsonAsync("/api/device-auth/start/", payload, ct);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<DeviceAuthStartResponse>(cancellationToken: ct);
+    }
+
+    /// <summary>
+    /// Asks once whether the request has been approved. A 4xx here is an
+    /// answer, not a failure - denied, expired and already-claimed all arrive
+    /// that way - so the body is read either way and only a network fault
+    /// throws.
+    /// </summary>
+    public async Task<DeviceAuthPollResponse?> PollDeviceAuthAsync(string deviceCode, CancellationToken ct = default)
+    {
+        var payload = new { device_code = deviceCode };
+        using var response = await _http.PostAsJsonAsync("/api/device-auth/poll/", payload, ct);
+        if ((int)response.StatusCode >= 500) return null; // transient - keep waiting
+
+        try
+        {
+            return await response.Content.ReadFromJsonAsync<DeviceAuthPollResponse>(cancellationToken: ct);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task<List<MediaItemDto>> GetMediaItemsAsync(CancellationToken ct = default)
     {
         var items = await _http.GetFromJsonAsync<List<MediaItemDto>>("/api/media/", ct);

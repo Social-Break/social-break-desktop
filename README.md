@@ -143,6 +143,17 @@ Everything below still needs a real Windows machine and a real login:
 ## Manual verification checklist (run against each release)
 
 - [ ] First launch shows the disclosure dialog once, then the login form.
+- [ ] The login window opens with **both** field captions readable - WinForms hides a
+      placeholder as soon as its box has focus, so focusing a field on open leaves it
+      blank and unlabelled.
+- [ ] **"Sign in with your browser" opens the default browser, and approving there signs
+      the app in within a couple of seconds** - the route that exists because a Google
+      account has no password to type and this window has no Google button. Also confirm
+      "Not now" leaves the app waiting rather than signing in, and that the link (which
+      reads "Cancel" while waiting) stops it.
+- [ ] A wrong password shows the server's own sentence, not "Server error (401)".
+- [ ] "Use a connect code" accepts a code from the website's Trackers page, pasted with
+      or without its dash.
 - [ ] Successful login stores a token and starts the tray icon/menu.
 - [ ] Tray tooltip and menu status update as you switch between tracked/untracked apps.
 - [ ] Focusing a tracked app (added as a `desktop_app` entry on the website's Media List)
