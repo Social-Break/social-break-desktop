@@ -34,25 +34,62 @@ newer runtime installed will refuse to start it with "You must install or update
 run this application". Publishing self-contained (below) sidesteps that entirely and is
 what the installer ships.
 
-## Publishing an installer
+## Releasing a version
 
-The Inno Setup script packages the self-contained single-file publish output, so end
-users need no .NET runtime of their own. Build in this order:
+### 1. Bump the version in both places
+
+`SocialBreakTray.csproj`'s `<Version>` and `installer/SocialBreakTray.iss`'s
+`MyAppVersion` must match. Nothing enforces it - a mismatch produces an installer whose
+Add/Remove Programs entry disagrees with the binary it installs.
+
+### 2. Stop any running copy
+
+The tray app holds a lock on its own `.exe`, so a build while it's running fails with
+`MSB3027: ... file is locked by: SocialBreakTray`. It runs detached and survives closing
+the terminal that started it, so this catches people out:
 
 ```
-cd SocialBreakTray
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+taskkill /IM SocialBreakTray.exe /F
 ```
 
-Then compile `installer/SocialBreakTray.iss` - either open it in the Inno Setup Compiler
-GUI and hit Build > Compile, or use its command-line compiler:
+### 3. Publish
+
+Target the app project explicitly. Running this at the solution root also tries to
+publish `SocialBreakTray.Tests`, which fails with `NETSDK1098` because a single-file
+publish requires an app host that a test project doesn't have:
+
+```
+dotnet publish SocialBreakTray/SocialBreakTray.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+```
+
+The Inno Setup script packages this self-contained single-file output, so end users need
+no .NET runtime of their own.
+
+### 4. Compile the installer
+
+From the repository root - the path below is relative to it, not to `SocialBreakTray/`:
 
 ```
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\SocialBreakTray.iss
 ```
 
 The result is `installer/Output/SocialBreakTraySetup.exe`. The `.iss` reads the publish
-output from the exact path above, so publishing first is not optional.
+output from the exact path step 3 writes to, so publishing first is not optional.
+
+### 5. Publish the release and repoint the website
+
+The website's Download button redirects to a fixed release tag, so a new installer that
+isn't released - or is released under a tag the site doesn't reference - changes nothing
+for anyone:
+
+```
+gh release create v1.0.4 installer/Output/SocialBreakTraySetup.exe \
+  --repo Social-Break/social-break-desktop --title "Social Break Desktop 1.0.4" --notes "..."
+```
+
+Then update the redirect in the website repo (`core/views.py`, search for
+`releases/download/`) and push. Until that lands, the button keeps serving the previous
+build.
 
 ## Project layout
 
@@ -119,6 +156,14 @@ Everything below still needs a real Windows machine and a real login:
 - [ ] **Kill the process via Task Manager mid-week, relaunch, and confirm the server-side
       weekly total did not drop** - the concrete test for `UsageAccumulator`'s disk
       persistence actually working as intended.
+- [ ] **Leave the app running across the 3am rollover with time accrued the evening
+      before, then confirm the previous day still appears in a custom date range** -
+      the rollover clears the daily counters, and a finished day is only preserved by
+      being parked in `PendingDays` first. Set `resetHour` a few minutes ahead to test
+      this without waiting for 3am.
+- [ ] Confirm a tracked app's time shows up when a single day is requested (the phone's
+      Usage Time screen, or `/api/usage-range/?start=&end=`) - per-day reporting is what
+      lets the computer appear in any range that isn't a whole week.
 - [ ] Toggling "Start with Windows" adds/removes the registry value and needs no
       elevation prompt.
 - [ ] "Log Out" clears the local token and returns to the login form on restart.
