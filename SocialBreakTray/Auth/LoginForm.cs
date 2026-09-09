@@ -32,17 +32,20 @@ internal class LoginForm : DarkForm
 {
     private const int Pad = 30;
     private const int FieldWidth = 320;
-    private const int FieldHeight = 34;
+    // 34 was the height of the text and nothing else. These are the first
+    // things anyone sees of the app, and they read as cramped.
+    private const int FieldHeight = 44;
 
     private readonly SocialBreakApiClient _apiClient;
-    private readonly TextBox _usernameBox = new();
-    private readonly TextBox _passwordBox = new();
-    private readonly TextBox _codeBox = new();
+    private readonly RoundedField _usernameField = new("Username or email", FieldWidth, FieldHeight);
+    private readonly RoundedField _passwordField = new("Password", FieldWidth, FieldHeight);
+    private readonly RoundedField _codeField = new("Connect code", FieldWidth, FieldHeight);
+    private readonly Label _codeHelp = new();
     private readonly LinkLabel _modeLink = new();
     private readonly Label _statusLabel = new();
     private readonly Label _dividerLabel = new();
-    private readonly Button _browserButton = new();
-    private readonly Button _loginButton = new();
+    private readonly RoundedButton _browserButton = new();
+    private readonly RoundedButton _loginButton = new();
     private bool _codeMode;
     private CancellationTokenSource? _waiting;
 
@@ -54,7 +57,7 @@ internal class LoginForm : DarkForm
         // Tall enough for the status line's three wrapped lines - the
         // server's explanations are sentences, not single words, and a
         // clipped explanation is no better than none.
-        SetContentSize(FieldWidth + Pad * 2, 512);
+        SetContentSize(FieldWidth + Pad * 2, 532);
         StartPosition = FormStartPosition.CenterScreen;
 
         int y = 26;
@@ -98,9 +101,7 @@ internal class LoginForm : DarkForm
         _browserButton.Size = new Size(FieldWidth, 40);
         _browserButton.BackColor = Theme.ButtonGreen;
         _browserButton.ForeColor = Color.White;
-        _browserButton.FlatStyle = FlatStyle.Flat;
-        _browserButton.FlatAppearance.BorderSize = 0;
-        _browserButton.FlatAppearance.MouseOverBackColor = Theme.ButtonGreenHover;
+        _browserButton.HoverColor = Theme.ButtonGreenHover;
         _browserButton.Font = new Font(Theme.UiFont.FontFamily, 10f, FontStyle.Bold);
         _browserButton.Cursor = Cursors.Hand;
         _browserButton.Click += async (_, _) => await OnBrowserSignInAsync();
@@ -120,19 +121,33 @@ internal class LoginForm : DarkForm
         // in the API): a Google signup is never shown the username that was
         // generated for it, so the email is all some people have.
         int fieldsTop = y;
-        StyleField(_usernameBox, "Username or email", new Point(Pad, y));
-        y += FieldHeight + 12;
-        StyleField(_passwordBox, "Password", new Point(Pad, y));
-        _passwordBox.UseSystemPasswordChar = true;
-        y += FieldHeight + 20;
+        _usernameField.Location = new Point(Pad, y);
+        int secondRowTop = y + FieldHeight + 12;
+        _passwordField.Location = new Point(Pad, secondRowTop);
+        _passwordField.Box.UseSystemPasswordChar = true;
+        y = secondRowTop + FieldHeight + 20;
 
-        // Sits where the username box does, since the two modes are
-        // alternatives rather than a form with an extra field.
-        StyleField(_codeBox, "Connect code", new Point(Pad, fieldsTop));
-        _codeBox.CharacterCasing = CharacterCasing.Upper;
-        _codeBox.TextAlign = HorizontalAlignment.Center;
-        _codeBox.Font = new Font(Theme.UiFont.FontFamily, 12f, FontStyle.Bold);
-        _codeBox.Visible = false;
+        // Sits where the username field does, since the two ways in are
+        // alternatives rather than one form with an extra box.
+        _codeField.Location = new Point(Pad, fieldsTop);
+        _codeField.Box.CharacterCasing = CharacterCasing.Upper;
+        _codeField.Box.TextAlign = HorizontalAlignment.Center;
+        _codeField.Box.Font = new Font(Theme.UiFont.FontFamily, 12f, FontStyle.Bold);
+        _codeField.LayoutBox();
+        _codeField.Visible = false;
+
+        // A code box with no idea where the code comes from is a dead end.
+        // This takes the space the password field leaves behind, so saying so
+        // costs no height at all.
+        _codeHelp.Text = "Get one on social-break.com: open Trackers, scroll to "
+            + "\"Connecting the desktop app\" and press the button.";
+        _codeHelp.ForeColor = Theme.TextSecondary;
+        _codeHelp.AutoSize = false;
+        _codeHelp.TextAlign = ContentAlignment.MiddleCenter;
+        _codeHelp.Font = new Font(Theme.UiFont.FontFamily, 8.5f);
+        _codeHelp.Location = new Point(Pad, secondRowTop);
+        _codeHelp.Size = new Size(FieldWidth, FieldHeight);
+        _codeHelp.Visible = false;
 
         // Quieter than the browser button on purpose: both work, one of them
         // is the one to try first.
@@ -141,10 +156,8 @@ internal class LoginForm : DarkForm
         _loginButton.Size = new Size(FieldWidth, 40);
         _loginButton.BackColor = Theme.Card;
         _loginButton.ForeColor = Theme.TextPrimary;
-        _loginButton.FlatStyle = FlatStyle.Flat;
-        _loginButton.FlatAppearance.BorderSize = 1;
-        _loginButton.FlatAppearance.BorderColor = Theme.Border;
-        _loginButton.FlatAppearance.MouseOverBackColor = Theme.MenuHover;
+        _loginButton.OutlineColor = Theme.Border;
+        _loginButton.HoverColor = Theme.MenuHover;
         _loginButton.Font = new Font(Theme.UiFont.FontFamily, 10f, FontStyle.Bold);
         _loginButton.Cursor = Cursors.Hand;
         _loginButton.Click += async (_, _) => await OnSubmitAsync();
@@ -177,7 +190,8 @@ internal class LoginForm : DarkForm
         Content.Controls.AddRange(new Control[]
         {
             icon, heading, subheading, _browserButton, _dividerLabel,
-            _usernameBox, _passwordBox, _codeBox, _loginButton, _modeLink, _statusLabel,
+            _usernameField, _passwordField, _codeField, _codeHelp,
+            _loginButton, _modeLink, _statusLabel,
         });
         AcceptButton = _loginButton;
         SetCodeMode(false);
@@ -188,26 +202,23 @@ internal class LoginForm : DarkForm
     private void SetCodeMode(bool codeMode)
     {
         _codeMode = codeMode;
-        _usernameBox.Visible = !codeMode;
-        _passwordBox.Visible = !codeMode;
-        _codeBox.Visible = codeMode;
+        _usernameField.Visible = !codeMode;
+        _passwordField.Visible = !codeMode;
+        _codeField.Visible = codeMode;
+        _codeHelp.Visible = codeMode;
 
         _loginButton.Text = codeMode ? "Connect" : "Log In";
         _dividerLabel.Text = codeMode ? "or paste a connect code" : "or type your details";
         _modeLink.Text = ModeLinkText();
 
-        // The code is useless without knowing where it comes from, and this
-        // window is not somewhere a user can go looking.
-        SetStatus(
-            codeMode ? "Get a code on social-break.com, under Trackers." : "",
-            isError: false);
+        SetStatus("", isError: false);
 
         // Only when the user actually switched - never while the window is
         // still being built. WinForms hides a placeholder the moment its box
         // has focus, so focusing a field on open leaves it blank and
         // unlabelled, which is worse than no focus at all.
         if (!IsHandleCreated) return;
-        if (codeMode) _codeBox.Focus(); else _usernameBox.Focus();
+        if (codeMode) _codeField.Box.Focus(); else _usernameField.Box.Focus();
     }
 
     protected override void OnShown(EventArgs e)
@@ -232,9 +243,9 @@ internal class LoginForm : DarkForm
     {
         _browserButton.Enabled = !busy;
         _loginButton.Enabled = !busy;
-        _usernameBox.Enabled = !busy;
-        _passwordBox.Enabled = !busy;
-        _codeBox.Enabled = !busy;
+        _usernameField.Enabled = !busy;
+        _passwordField.Enabled = !busy;
+        _codeField.Enabled = !busy;
         _modeLink.Text = busy ? "Cancel" : ModeLinkText();
     }
 
@@ -355,19 +366,6 @@ internal class LoginForm : DarkForm
         return null;
     }
 
-    /// <summary>Flat dark inputs with an inset well, rather than the bright
-    /// white rectangles WinForms draws by default on a dark background.</summary>
-    private void StyleField(TextBox box, string placeholder, Point location)
-    {
-        box.Location = location;
-        box.Size = new Size(FieldWidth, FieldHeight);
-        box.BackColor = Theme.Well;
-        box.ForeColor = Theme.TextPrimary;
-        box.BorderStyle = BorderStyle.FixedSingle;
-        box.Font = new Font(Theme.UiFont.FontFamily, 10.5f);
-        box.PlaceholderText = placeholder;
-    }
-
     private async Task OnSubmitAsync()
     {
         if (_codeMode)
@@ -381,7 +379,7 @@ internal class LoginForm : DarkForm
 
     private async Task OnConnectClickedAsync()
     {
-        var code = _codeBox.Text.Trim();
+        var code = _codeField.Box.Text.Trim();
         if (string.IsNullOrEmpty(code))
         {
             SetStatus("Enter the code from the website.", isError: true);
@@ -399,7 +397,7 @@ internal class LoginForm : DarkForm
             if (result?.Token != null)
             {
                 AcquiredToken = result.Token;
-                _codeBox.Text = "";
+                _codeField.Box.Text = "";
                 DialogResult = DialogResult.OK;
                 Close();
             }
@@ -420,8 +418,8 @@ internal class LoginForm : DarkForm
 
     private async Task OnLoginClickedAsync()
     {
-        var username = _usernameBox.Text.Trim();
-        var password = _passwordBox.Text;
+        var username = _usernameField.Box.Text.Trim();
+        var password = _passwordField.Box.Text;
 
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         {
@@ -438,7 +436,7 @@ internal class LoginForm : DarkForm
             if (result?.Token != null)
             {
                 AcquiredToken = result.Token;
-                _passwordBox.Text = "";
+                _passwordField.Box.Text = "";
                 DialogResult = DialogResult.OK;
                 Close();
             }
