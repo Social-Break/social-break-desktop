@@ -50,6 +50,15 @@ public class SocialBreakApiClient
         //
         // 5xx stays generic: Django answers those with an HTML error page,
         // not JSON, so there is no message to read.
+        return await ReadLoginResultAsync(response, "That didn't match. Check your details and try again.", ct);
+    }
+
+    /// <summary>Shared by both ways in - a password and a connect code differ
+    /// only in what gets posted; what comes back, and what a refusal means,
+    /// are identical.</summary>
+    private static async Task<LoginResponse?> ReadLoginResultAsync(
+        HttpResponseMessage response, string genericFailure, CancellationToken ct)
+    {
         if ((int)response.StatusCode >= 500)
         {
             return new LoginResponse { Error = $"Server error ({(int)response.StatusCode}). Please try again later." };
@@ -66,10 +75,25 @@ public class SocialBreakApiClient
             {
                 // Not JSON after all - fall through to the generic wording.
             }
-            return new LoginResponse { Error = "That didn't match. Check your details and try again." };
+            return new LoginResponse { Error = genericFailure };
         }
 
         return await response.Content.ReadFromJsonAsync<LoginResponse>(cancellationToken: ct);
+    }
+
+    /// <summary>
+    /// Exchanges a one-time code from the website for the same token
+    /// LoginAsync returns. This is the only route in for an account created
+    /// through Google: it has no password, and a tray app has nowhere to put
+    /// a "Continue with Google" button. The extension has redeemed codes at
+    /// this endpoint since before the desktop app existed - the only new part
+    /// is naming which client is asking, so the server records the right one.
+    /// </summary>
+    public async Task<LoginResponse?> ConnectWithCodeAsync(string code, CancellationToken ct = default)
+    {
+        var payload = new { code, client_type = "desktop_app" };
+        using var response = await _http.PostAsJsonAsync("/api/extension-connect/", payload, ct);
+        return await ReadLoginResultAsync(response, "That code didn't work. Get a fresh one from the website.", ct);
     }
 
     public async Task<List<MediaItemDto>> GetMediaItemsAsync(CancellationToken ct = default)
