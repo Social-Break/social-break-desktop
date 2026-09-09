@@ -34,7 +34,10 @@ internal class LoginForm : DarkForm
     public LoginForm(SocialBreakApiClient apiClient) : base("Social Break", showMinimize: false)
     {
         _apiClient = apiClient;
-        SetContentSize(FieldWidth + Pad * 2, 348);
+        // Tall enough for the status line's three wrapped lines - the
+        // server's explanations are sentences, not single words, and a
+        // clipped explanation is no better than none.
+        SetContentSize(FieldWidth + Pad * 2, 396);
         StartPosition = FormStartPosition.CenterScreen;
 
         int y = 26;
@@ -98,7 +101,7 @@ internal class LoginForm : DarkForm
         y += 40 + 14;
 
         _statusLabel.Location = new Point(Pad, y);
-        _statusLabel.Size = new Size(FieldWidth, 34);
+        _statusLabel.Size = new Size(FieldWidth, 68);
         _statusLabel.TextAlign = ContentAlignment.TopCenter;
         _statusLabel.ForeColor = Theme.TextMuted;
 

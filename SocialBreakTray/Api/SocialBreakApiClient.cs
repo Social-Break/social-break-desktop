@@ -35,16 +35,38 @@ public class SocialBreakApiClient
         var payload = new { username, password, client_type = "desktop_app" };
         using var response = await _http.PostAsJsonAsync("/api/extension-login/", payload, ct);
 
-        // Distinguish "reached the server but it returned an error" (e.g. bad
-        // credentials as 400, or a server-side 500) from genuine
-        // unreachability (DNS/TLS/timeout, which instead throws
-        // HttpRequestException/TaskCanceledException out of this method) -
-        // a 500 in particular returns Django's generic HTML error page, not
-        // JSON, so reading it as LoginResponse would otherwise surface as a
-        // misleading "couldn't reach the server" in LoginForm's catch block.
-        if (!response.IsSuccessStatusCode)
+        // Distinguish "reached the server but it returned an error" from
+        // genuine unreachability (DNS/TLS/timeout, which instead throws
+        // HttpRequestException/TaskCanceledException out of this method).
+        //
+        // A rejected sign-in is a 4xx carrying a JSON explanation, and that
+        // explanation is the whole point: it is where the server says a wrong
+        // password was wrong, or that the account signs in with Google and
+        // has no password to type here at all. This used to lump every
+        // non-2xx together and show "Server error (401). Please try again
+        // later." - which is neither true nor actionable for someone who
+        // simply mistyped, and left a Google account with no way of finding
+        // out why it could never get in.
+        //
+        // 5xx stays generic: Django answers those with an HTML error page,
+        // not JSON, so there is no message to read.
+        if ((int)response.StatusCode >= 500)
         {
             return new LoginResponse { Error = $"Server error ({(int)response.StatusCode}). Please try again later." };
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            try
+            {
+                var failure = await response.Content.ReadFromJsonAsync<LoginResponse>(cancellationToken: ct);
+                if (!string.IsNullOrWhiteSpace(failure?.Error)) return failure;
+            }
+            catch
+            {
+                // Not JSON after all - fall through to the generic wording.
+            }
+            return new LoginResponse { Error = "That didn't match. Check your details and try again." };
         }
 
         return await response.Content.ReadFromJsonAsync<LoginResponse>(cancellationToken: ct);
