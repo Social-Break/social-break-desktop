@@ -160,7 +160,23 @@ internal class LoginForm : DarkForm
             codeMode ? "Get a code on social-break.com, under Trackers. No password needed." : "",
             isError: false);
 
+        // Only when the user actually switched - never while the window is
+        // still being built. WinForms hides a placeholder the moment its box
+        // has focus, so focusing a field on open leaves it blank and
+        // unlabelled, which is worse than no focus at all.
+        if (!IsHandleCreated) return;
         if (codeMode) _codeBox.Focus(); else _usernameBox.Focus();
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        // Left to itself WinForms focuses the first control in tab order - the
+        // username box - and hides its placeholder along with it, so the
+        // window opened showing an empty rectangle above a labelled Password.
+        // Parking focus on the button keeps both captions readable, and
+        // AcceptButton already means Enter submits from anywhere.
+        ActiveControl = _loginButton;
     }
 
     /// <summary>Flat dark inputs with an inset well, rather than the bright
