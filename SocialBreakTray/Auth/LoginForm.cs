@@ -40,7 +40,7 @@ internal class LoginForm : DarkForm
     private readonly RoundedField _usernameField = new("Username or email", FieldWidth, FieldHeight);
     private readonly RoundedField _passwordField = new("Password", FieldWidth, FieldHeight);
     private readonly RoundedField _codeField = new("Connect code", FieldWidth, FieldHeight);
-    private readonly Label _codeHelp = new();
+    private readonly LinkLabel _codeHelp = new();
     private readonly LinkLabel _modeLink = new();
     private readonly Label _statusLabel = new();
     private readonly Label _dividerLabel = new();
@@ -136,18 +136,33 @@ internal class LoginForm : DarkForm
         _codeField.LayoutBox();
         _codeField.Visible = false;
 
-        // A code box with no idea where the code comes from is a dead end.
-        // This takes the space the password field leaves behind, so saying so
-        // costs no height at all.
-        _codeHelp.Text = "Get one on social-break.com: open Trackers, scroll to "
-            + "\"Connecting the desktop app\" and press the button.";
+        // A code box with no idea where the code comes from is a dead end,
+        // and telling someone to go and find a page is only half an answer
+        // when the app can just open it. This takes the space the password
+        // field leaves behind, so it costs no height at all.
+        const string helpText = "Codes are made on the website. Open the page that makes one";
+        const string helpLink = "Open the page that makes one";
+        _codeHelp.Text = helpText;
+        _codeHelp.LinkArea = new LinkArea(helpText.IndexOf(helpLink, StringComparison.Ordinal), helpLink.Length);
         _codeHelp.ForeColor = Theme.TextSecondary;
+        _codeHelp.LinkColor = Theme.AccentGreen;
+        _codeHelp.ActiveLinkColor = Theme.TextPrimary;
+        _codeHelp.VisitedLinkColor = Theme.AccentGreen;
+        _codeHelp.LinkBehavior = LinkBehavior.HoverUnderline;
         _codeHelp.AutoSize = false;
         _codeHelp.TextAlign = ContentAlignment.MiddleCenter;
         _codeHelp.Font = new Font(Theme.UiFont.FontFamily, 8.5f);
         _codeHelp.Location = new Point(Pad, secondRowTop);
         _codeHelp.Size = new Size(FieldWidth, FieldHeight);
+        _codeHelp.Cursor = Cursors.Hand;
         _codeHelp.Visible = false;
+        _codeHelp.LinkClicked += (_, _) =>
+        {
+            if (!TryOpenUrl(SocialBreakApiClient.ConnectCodePageUrl))
+            {
+                SetStatus("Couldn't open your browser. Go to social-break.com and open Trackers.", isError: true);
+            }
+        };
 
         // Quieter than the browser button on purpose: both work, one of them
         // is the one to try first.
@@ -232,6 +247,21 @@ internal class LoginForm : DarkForm
         ActiveControl = _browserButton;
     }
 
+    /// <summary>UseShellExecute is what hands a URL to the default browser;
+    /// without it .NET tries to run the address as a program.</summary>
+    private static bool TryOpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private string ModeLinkText() => _codeMode
         ? "Sign in with a password instead"
         : "Can't open a browser? Use a connect code";
@@ -279,13 +309,7 @@ internal class LoginForm : DarkForm
             return;
         }
 
-        try
-        {
-            // UseShellExecute is what hands the URL to the default browser;
-            // without it .NET tries to execute the address as a program.
-            Process.Start(new ProcessStartInfo(start.ApprovalUrl) { UseShellExecute = true });
-        }
-        catch
+        if (!TryOpenUrl(start.ApprovalUrl))
         {
             SetStatus("Couldn't open your browser. Use your password, or a connect code.", isError: true);
             SetBusy(false);
