@@ -4,15 +4,25 @@ using SocialBreakTray.Ui;
 namespace SocialBreakTray.Auth;
 
 /// <summary>
-/// Username/password login, mirroring the browser extension's options.js
-/// login flow exactly (same endpoint, same request/response shape) so
-/// logging into the desktop app feels identical to logging into the
-/// extension. Built up in code rather than a .Designer.cs/.resx pair - this
-/// is a small enough form that a hand-written layout is simpler than
-/// generating designer boilerplate no visual designer here can produce.
+/// Username/password login, mirroring the browser extension's options.js login
+/// flow exactly (same endpoint, same request/response shape) so logging into
+/// the desktop app feels identical to logging into the extension. Built up in
+/// code rather than a .Designer.cs/.resx pair - this is a small enough form
+/// that a hand-written layout is simpler than generating designer boilerplate
+/// no visual designer here can produce.
+///
+/// Built on DarkForm like About and Live Tracking. It previously derived from
+/// Form with the system title bar merely recoloured, on the reasoning that a
+/// short-lived pre-login dialog didn't need the custom chrome - but this is the
+/// very first window anyone sees, and it looked like a different application to
+/// the one it opens. internal, like its siblings, because DarkForm is.
 /// </summary>
-public class LoginForm : Form
+internal class LoginForm : DarkForm
 {
+    private const int Pad = 30;
+    private const int FieldWidth = 320;
+    private const int FieldHeight = 34;
+
     private readonly SocialBreakApiClient _apiClient;
     private readonly TextBox _usernameBox = new();
     private readonly TextBox _passwordBox = new();
@@ -21,76 +31,93 @@ public class LoginForm : Form
 
     public string? AcquiredToken { get; private set; }
 
-    public LoginForm(SocialBreakApiClient apiClient)
+    public LoginForm(SocialBreakApiClient apiClient) : base("Social Break", showMinimize: false)
     {
         _apiClient = apiClient;
-
-        Text = "Social Break - Log In";
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false;
-        MinimizeBox = false;
+        SetContentSize(FieldWidth + Pad * 2, 348);
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(340, 230);
-        BackColor = Theme.Bg;
-        // Keeps the system title bar (this is a short-lived
-        // pre-login dialog, not a main window), but recolors it -
-        // Windows draws that bar light regardless of the client
-        // area behind it unless asked otherwise. See Theme.
-        Theme.ApplySystemDarkTitleBar(this);
 
-        var introLabel = new Label
+        int y = 26;
+
+        // The mark, so the first window carries the same identity as the tray
+        // icon the user is about to start looking for.
+        var icon = new Panel
         {
-            Text = "Log in with your Social Break account to connect this device.",
-            ForeColor = Theme.TextSecondary,
-            AutoSize = false,
-            Location = new Point(16, 14),
-            Size = new Size(308, 40),
+            Location = new Point((FieldWidth + Pad * 2 - 40) / 2, y),
+            Size = new Size(40, 40),
+            BackColor = Color.Transparent,
         };
+        icon.Paint += (_, e) => Theme.DrawAppIcon(e.Graphics, new Rectangle(0, 0, 40, 40));
+        y += 40 + 18;
 
-        // Left at their system default the input boxes render as bright
-        // white rectangles on this background - the same mismatch the
-        // title bar had, just inside the client area.
-        foreach (var box in new[] { _usernameBox, _passwordBox })
+        var heading = new Label
         {
-            box.BackColor = Theme.Surface;
-            box.ForeColor = Theme.TextPrimary;
-            box.BorderStyle = BorderStyle.FixedSingle;
-        }
+            Text = "Log in to continue",
+            ForeColor = Theme.TextPrimary,
+            Font = new Font(Theme.UiFont.FontFamily, 14f, FontStyle.Regular),
+            AutoSize = false,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Location = new Point(Pad, y),
+            Size = new Size(FieldWidth, 26),
+        };
+        y += 26 + 6;
 
-        var usernameLabel = MakeFieldLabel("Username", 64);
-        _usernameBox.Location = new Point(16, 84);
-        _usernameBox.Size = new Size(308, 24);
+        var subheading = new Label
+        {
+            Text = "Use the same account as the website.",
+            ForeColor = Theme.TextMuted,
+            AutoSize = false,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Location = new Point(Pad, y),
+            Size = new Size(FieldWidth, 20),
+        };
+        y += 20 + 26;
 
-        var passwordLabel = MakeFieldLabel("Password", 114);
-        _passwordBox.Location = new Point(16, 134);
-        _passwordBox.Size = new Size(308, 24);
+        // Placeholder text instead of separate labels: two field captions on a
+        // two-field form is more furniture than information.
+        StyleField(_usernameBox, "Username", new Point(Pad, y));
+        y += FieldHeight + 12;
+        StyleField(_passwordBox, "Password", new Point(Pad, y));
         _passwordBox.UseSystemPasswordChar = true;
+        y += FieldHeight + 20;
 
         _loginButton.Text = "Log In";
-        _loginButton.Location = new Point(16, 168);
-        _loginButton.Size = new Size(308, 32);
+        _loginButton.Location = new Point(Pad, y);
+        _loginButton.Size = new Size(FieldWidth, 40);
         _loginButton.BackColor = Theme.ButtonGreen;
         _loginButton.ForeColor = Color.White;
         _loginButton.FlatStyle = FlatStyle.Flat;
         _loginButton.FlatAppearance.BorderSize = 0;
+        _loginButton.FlatAppearance.MouseOverBackColor = Theme.ButtonGreenHover;
+        _loginButton.Font = new Font(Theme.UiFont.FontFamily, 10f, FontStyle.Bold);
+        _loginButton.Cursor = Cursors.Hand;
         _loginButton.Click += async (_, _) => await OnLoginClickedAsync();
+        y += 40 + 14;
 
-        _statusLabel.Location = new Point(16, 204);
-        _statusLabel.Size = new Size(308, 20);
-        _statusLabel.TextAlign = ContentAlignment.MiddleCenter;
-        _statusLabel.Font = new Font(_statusLabel.Font, FontStyle.Bold);
+        _statusLabel.Location = new Point(Pad, y);
+        _statusLabel.Size = new Size(FieldWidth, 34);
+        _statusLabel.TextAlign = ContentAlignment.TopCenter;
+        _statusLabel.ForeColor = Theme.TextMuted;
 
-        Controls.AddRange(new Control[] { introLabel, usernameLabel, _usernameBox, passwordLabel, _passwordBox, _loginButton, _statusLabel });
+        Content.Controls.AddRange(new Control[]
+        {
+            icon, heading, subheading, _usernameBox, _passwordBox, _loginButton, _statusLabel,
+        });
         AcceptButton = _loginButton;
     }
 
-    private static Label MakeFieldLabel(string text, int y) => new()
+    /// <summary>Flat dark inputs with an inset well, rather than the bright
+    /// white rectangles WinForms draws by default on a dark background.</summary>
+    private void StyleField(TextBox box, string placeholder, Point location)
     {
-        Text = text,
-        ForeColor = Theme.TextSecondary,
-        Location = new Point(16, y),
-        AutoSize = true,
-    };
+        box.Location = location;
+        box.Size = new Size(FieldWidth, FieldHeight);
+        box.BackColor = Theme.Well;
+        box.ForeColor = Theme.TextPrimary;
+        box.BorderStyle = BorderStyle.FixedSingle;
+        box.Font = new Font(Theme.UiFont.FontFamily, 10.5f);
+        box.PlaceholderText = placeholder;
+    }
 
     private async Task OnLoginClickedAsync()
     {
@@ -99,7 +126,7 @@ public class LoginForm : Form
 
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         {
-            SetStatus("Please enter your username and password.", isError: true);
+            SetStatus("Enter your username and password.", isError: true);
             return;
         }
 
@@ -118,12 +145,12 @@ public class LoginForm : Form
             }
             else
             {
-                SetStatus(result?.Error ?? "Invalid username or password.", isError: true);
+                SetStatus(result?.Error ?? "That username or password wasn't right.", isError: true);
             }
         }
         catch
         {
-            SetStatus("Couldn't reach the server. Please try again.", isError: true);
+            SetStatus("Couldn't reach the server. Try again.", isError: true);
         }
         finally
         {
@@ -134,6 +161,6 @@ public class LoginForm : Form
     private void SetStatus(string text, bool isError)
     {
         _statusLabel.Text = text;
-        _statusLabel.ForeColor = isError ? Color.FromArgb(0xff, 0x6b, 0x6b) : Color.FromArgb(0xaa, 0xaa, 0xaa);
+        _statusLabel.ForeColor = isError ? Theme.AccentRed : Theme.TextMuted;
     }
 }
