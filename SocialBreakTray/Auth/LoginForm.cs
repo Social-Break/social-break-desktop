@@ -1,16 +1,26 @@
+using System.Diagnostics;
+
 using SocialBreakTray.Api;
 using SocialBreakTray.Ui;
 
 namespace SocialBreakTray.Auth;
 
 /// <summary>
-/// Two ways in, both mirroring the browser extension: a username-or-email and
-/// password, or a one-time code from the website. The code is not a shortcut -
-/// for an account created through Google it is the only route, since such an
-/// account has no password and a tray app has nowhere to put a "Continue with
-/// Google" button. Built up in code rather than a .Designer.cs/.resx pair -
-/// this is a small enough form that a hand-written layout is simpler than
-/// generating designer boilerplate no visual designer here can produce.
+/// Three ways in, in descending order of how much the person has to do.
+///
+/// The first is the one to reach for: the app opens the browser, they press
+/// one button on a page they are already signed into, and the app collects a
+/// token by itself. It works the same whether the account has a password or
+/// signed up through Google - which matters, because a Google account has no
+/// password at all and a tray app has nowhere to put a "Continue with Google"
+/// button, so without something like this those accounts simply could not get
+/// in. Then a username-or-email and password, for anyone who would rather
+/// type. Then a one-time code, for when the browser cannot be reached from
+/// here at all.
+///
+/// Built up in code rather than a .Designer.cs/.resx pair - this is a small
+/// enough form that a hand-written layout is simpler than generating designer
+/// boilerplate no visual designer here can produce.
 ///
 /// Built on DarkForm like About and Live Tracking. It previously derived from
 /// Form with the system title bar merely recoloured, on the reasoning that a
@@ -30,8 +40,11 @@ internal class LoginForm : DarkForm
     private readonly TextBox _codeBox = new();
     private readonly LinkLabel _modeLink = new();
     private readonly Label _statusLabel = new();
+    private readonly Label _dividerLabel = new();
+    private readonly Button _browserButton = new();
     private readonly Button _loginButton = new();
     private bool _codeMode;
+    private CancellationTokenSource? _waiting;
 
     public string? AcquiredToken { get; private set; }
 
@@ -41,7 +54,7 @@ internal class LoginForm : DarkForm
         // Tall enough for the status line's three wrapped lines - the
         // server's explanations are sentences, not single words, and a
         // clipped explanation is no better than none.
-        SetContentSize(FieldWidth + Pad * 2, 426);
+        SetContentSize(FieldWidth + Pad * 2, 512);
         StartPosition = FormStartPosition.CenterScreen;
 
         int y = 26;
@@ -80,6 +93,27 @@ internal class LoginForm : DarkForm
         };
         y += 20 + 26;
 
+        _browserButton.Text = "Sign in with your browser";
+        _browserButton.Location = new Point(Pad, y);
+        _browserButton.Size = new Size(FieldWidth, 40);
+        _browserButton.BackColor = Theme.ButtonGreen;
+        _browserButton.ForeColor = Color.White;
+        _browserButton.FlatStyle = FlatStyle.Flat;
+        _browserButton.FlatAppearance.BorderSize = 0;
+        _browserButton.FlatAppearance.MouseOverBackColor = Theme.ButtonGreenHover;
+        _browserButton.Font = new Font(Theme.UiFont.FontFamily, 10f, FontStyle.Bold);
+        _browserButton.Cursor = Cursors.Hand;
+        _browserButton.Click += async (_, _) => await OnBrowserSignInAsync();
+        y += 40 + 16;
+
+        _dividerLabel.Text = "or type your details";
+        _dividerLabel.ForeColor = Theme.TextMuted;
+        _dividerLabel.AutoSize = false;
+        _dividerLabel.TextAlign = ContentAlignment.MiddleCenter;
+        _dividerLabel.Location = new Point(Pad, y);
+        _dividerLabel.Size = new Size(FieldWidth, 18);
+        y += 18 + 14;
+
         // Placeholder text instead of separate labels: two field captions on a
         // two-field form is more furniture than information.
         // Either identifier is accepted server-side (see core/auth_backends.py
@@ -100,14 +134,17 @@ internal class LoginForm : DarkForm
         _codeBox.Font = new Font(Theme.UiFont.FontFamily, 12f, FontStyle.Bold);
         _codeBox.Visible = false;
 
+        // Quieter than the browser button on purpose: both work, one of them
+        // is the one to try first.
         _loginButton.Text = "Log In";
         _loginButton.Location = new Point(Pad, y);
         _loginButton.Size = new Size(FieldWidth, 40);
-        _loginButton.BackColor = Theme.ButtonGreen;
-        _loginButton.ForeColor = Color.White;
+        _loginButton.BackColor = Theme.Card;
+        _loginButton.ForeColor = Theme.TextPrimary;
         _loginButton.FlatStyle = FlatStyle.Flat;
-        _loginButton.FlatAppearance.BorderSize = 0;
-        _loginButton.FlatAppearance.MouseOverBackColor = Theme.ButtonGreenHover;
+        _loginButton.FlatAppearance.BorderSize = 1;
+        _loginButton.FlatAppearance.BorderColor = Theme.Border;
+        _loginButton.FlatAppearance.MouseOverBackColor = Theme.MenuHover;
         _loginButton.Font = new Font(Theme.UiFont.FontFamily, 10f, FontStyle.Bold);
         _loginButton.Cursor = Cursors.Hand;
         _loginButton.Click += async (_, _) => await OnSubmitAsync();
@@ -123,7 +160,13 @@ internal class LoginForm : DarkForm
         _modeLink.LinkBehavior = LinkBehavior.HoverUnderline;
         _modeLink.Font = new Font(Theme.UiFont.FontFamily, 8.5f);
         _modeLink.Cursor = Cursors.Hand;
-        _modeLink.LinkClicked += (_, _) => SetCodeMode(!_codeMode);
+        _modeLink.LinkClicked += (_, _) =>
+        {
+            // Doubles as the way out of the waiting state - there is nothing
+            // else on screen to press while a browser approval is pending.
+            if (_waiting != null) { _waiting.Cancel(); return; }
+            SetCodeMode(!_codeMode);
+        };
         y += 20 + 10;
 
         _statusLabel.Location = new Point(Pad, y);
@@ -133,8 +176,8 @@ internal class LoginForm : DarkForm
 
         Content.Controls.AddRange(new Control[]
         {
-            icon, heading, subheading, _usernameBox, _passwordBox, _codeBox,
-            _loginButton, _modeLink, _statusLabel,
+            icon, heading, subheading, _browserButton, _dividerLabel,
+            _usernameBox, _passwordBox, _codeBox, _loginButton, _modeLink, _statusLabel,
         });
         AcceptButton = _loginButton;
         SetCodeMode(false);
@@ -150,14 +193,13 @@ internal class LoginForm : DarkForm
         _codeBox.Visible = codeMode;
 
         _loginButton.Text = codeMode ? "Connect" : "Log In";
-        _modeLink.Text = codeMode
-            ? "Sign in with a password instead"
-            : "Signed up with Google? Use a connect code";
+        _dividerLabel.Text = codeMode ? "or paste a connect code" : "or type your details";
+        _modeLink.Text = ModeLinkText();
 
         // The code is useless without knowing where it comes from, and this
         // window is not somewhere a user can go looking.
         SetStatus(
-            codeMode ? "Get a code on social-break.com, under Trackers. No password needed." : "",
+            codeMode ? "Get a code on social-break.com, under Trackers." : "",
             isError: false);
 
         // Only when the user actually switched - never while the window is
@@ -176,7 +218,141 @@ internal class LoginForm : DarkForm
         // window opened showing an empty rectangle above a labelled Password.
         // Parking focus on the button keeps both captions readable, and
         // AcceptButton already means Enter submits from anywhere.
-        ActiveControl = _loginButton;
+        ActiveControl = _browserButton;
+    }
+
+    private string ModeLinkText() => _codeMode
+        ? "Sign in with a password instead"
+        : "Can't open a browser? Use a connect code";
+
+    /// <summary>Everything off while a browser approval is outstanding: two
+    /// half-finished sign-ins racing each other is nobody's idea of a login
+    /// window, and the link becomes the way to abandon the one in flight.</summary>
+    private void SetBusy(bool busy)
+    {
+        _browserButton.Enabled = !busy;
+        _loginButton.Enabled = !busy;
+        _usernameBox.Enabled = !busy;
+        _passwordBox.Enabled = !busy;
+        _codeBox.Enabled = !busy;
+        _modeLink.Text = busy ? "Cancel" : ModeLinkText();
+    }
+
+    /// <summary>
+    /// The path that asks the least of the person: open their browser, wait
+    /// for them to press one button on a page they are already signed into,
+    /// and pick the token up on the next poll. Nothing is typed or copied,
+    /// and it is identical for a password account and a Google one.
+    /// </summary>
+    private async Task OnBrowserSignInAsync()
+    {
+        SetBusy(true);
+        SetStatus("Opening your browser...", isError: false);
+
+        DeviceAuthStartResponse? start;
+        try
+        {
+            start = await _apiClient.StartDeviceAuthAsync();
+        }
+        catch
+        {
+            SetStatus("Couldn't reach the server. Try again.", isError: true);
+            SetBusy(false);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(start?.DeviceCode) || string.IsNullOrWhiteSpace(start?.ApprovalUrl))
+        {
+            SetStatus("Couldn't start that just now. Try your password instead.", isError: true);
+            SetBusy(false);
+            return;
+        }
+
+        try
+        {
+            // UseShellExecute is what hands the URL to the default browser;
+            // without it .NET tries to execute the address as a program.
+            Process.Start(new ProcessStartInfo(start.ApprovalUrl) { UseShellExecute = true });
+        }
+        catch
+        {
+            SetStatus("Couldn't open your browser. Use your password, or a connect code.", isError: true);
+            SetBusy(false);
+            return;
+        }
+
+        string? token = null;
+        _waiting = new CancellationTokenSource();
+        SetStatus("Waiting for you to approve it in your browser...", isError: false);
+
+        try
+        {
+            token = await WaitForApprovalAsync(start, _waiting.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            SetStatus("", isError: false);
+        }
+        finally
+        {
+            _waiting.Dispose();
+            _waiting = null;
+            SetBusy(false);
+        }
+
+        if (token == null) return;
+
+        AcquiredToken = token;
+        DialogResult = DialogResult.OK;
+        Close();
+    }
+
+    /// <summary>Polls until somebody answers, the link runs out, or the person
+    /// gives up. A failed poll is not an answer - the browser tab is still
+    /// open and a dropped packet should not end the attempt - so only a real
+    /// verdict from the server stops the loop.</summary>
+    private async Task<string?> WaitForApprovalAsync(DeviceAuthStartResponse start, CancellationToken ct)
+    {
+        var interval = TimeSpan.FromSeconds(Math.Max(1, start.Interval));
+        var deadline = DateTime.UtcNow.AddSeconds(start.ExpiresIn > 0 ? start.ExpiresIn : 600);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(interval, ct);
+
+            DeviceAuthPollResponse? poll;
+            try
+            {
+                poll = await _apiClient.PollDeviceAuthAsync(start.DeviceCode!, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                continue;
+            }
+
+            switch (poll?.Status)
+            {
+                case "approved":
+                    if (!string.IsNullOrWhiteSpace(poll.Token)) return poll.Token;
+                    return null;
+                case "denied":
+                    SetStatus("That was turned down in the browser. Nothing is connected.", isError: true);
+                    return null;
+                case null:
+                case "pending":
+                    continue;
+                default:
+                    SetStatus("That approval link ran out. Press the button again for a fresh one.", isError: true);
+                    return null;
+            }
+        }
+
+        SetStatus("Nobody approved it in time. Press the button again for a fresh link.", isError: true);
+        return null;
     }
 
     /// <summary>Flat dark inputs with an inset well, rather than the bright

@@ -14,6 +14,35 @@ public class LoginResponse
     public string? Error { get; set; }
 }
 
+/// <summary>What the server hands back when the app asks to be signed in
+/// through the browser: the secret it polls with, and the page to open.</summary>
+public class DeviceAuthStartResponse
+{
+    [JsonPropertyName("device_code")]
+    public string? DeviceCode { get; set; }
+
+    [JsonPropertyName("approval_url")]
+    public string? ApprovalUrl { get; set; }
+
+    [JsonPropertyName("interval")]
+    public int Interval { get; set; }
+
+    [JsonPropertyName("expires_in")]
+    public int ExpiresIn { get; set; }
+}
+
+/// <summary>One answer to "has anybody approved me yet". Status is "pending"
+/// until someone presses the button, then "approved" with a token exactly
+/// once - or "denied", "expired", "invalid", all of which mean start over.</summary>
+public class DeviceAuthPollResponse
+{
+    [JsonPropertyName("status")]
+    public string? Status { get; set; }
+
+    [JsonPropertyName("token")]
+    public string? Token { get; set; }
+}
+
 // MediaItemSerializer's fields = ['id', 'url', 'name', 'is_active', 'source_type'].
 public class MediaItemDto
 {
