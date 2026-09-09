@@ -16,6 +16,17 @@ public class SocialBreakApiClient
 {
     private const string BaseUrl = "https://social-break.com";
 
+    /// <summary>Where to send someone whose next step is on the website. Comes
+    /// off the same constant the API calls do, so the two can never end up
+    /// pointing at different deployments.</summary>
+    public const string SiteUrl = BaseUrl;
+
+    /// <summary>The Trackers page, scrolled to the block that mints a connect
+    /// code. A query parameter and not a #fragment - the page is behind a
+    /// login, and a fragment never reaches the server, so it would be dropped
+    /// on the way through the login redirect.</summary>
+    public const string ConnectCodePageUrl = BaseUrl + "/extension/?connect=desktop";
+
     private readonly HttpClient _http;
     private string? _token;
 
