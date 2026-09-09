@@ -6,7 +6,7 @@
 ; so end users don't need the .NET runtime installed separately.
 
 #define MyAppName "Social Break"
-#define MyAppVersion "1.0.4"
+#define MyAppVersion "1.0.5"
 #define MyAppPublisher "Social Break"
 #define MyAppExeName "SocialBreakTray.exe"
 #define MyAppSourceExe "..\SocialBreakTray\bin\Release\net8.0-windows\win-x64\publish\SocialBreakTray.exe"
