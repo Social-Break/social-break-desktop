@@ -4,7 +4,7 @@ using SocialBreakTray.Ui;
 namespace SocialBreakTray.Auth;
 
 /// <summary>
-/// Username/password login, mirroring the browser extension's options.js login
+/// Username-or-email/password login, mirroring the browser extension's options.js login
 /// flow exactly (same endpoint, same request/response shape) so logging into
 /// the desktop app feels identical to logging into the extension. Built up in
 /// code rather than a .Designer.cs/.resx pair - this is a small enough form
@@ -75,7 +75,10 @@ internal class LoginForm : DarkForm
 
         // Placeholder text instead of separate labels: two field captions on a
         // two-field form is more furniture than information.
-        StyleField(_usernameBox, "Username", new Point(Pad, y));
+        // Either identifier is accepted server-side (see core/auth_backends.py
+        // in the API): a Google signup is never shown the username that was
+        // generated for it, so the email is all some people have.
+        StyleField(_usernameBox, "Username or email", new Point(Pad, y));
         y += FieldHeight + 12;
         StyleField(_passwordBox, "Password", new Point(Pad, y));
         _passwordBox.UseSystemPasswordChar = true;
@@ -126,7 +129,7 @@ internal class LoginForm : DarkForm
 
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         {
-            SetStatus("Enter your username and password.", isError: true);
+            SetStatus("Enter your username or email, and your password.", isError: true);
             return;
         }
 
@@ -145,7 +148,7 @@ internal class LoginForm : DarkForm
             }
             else
             {
-                SetStatus(result?.Error ?? "That username or password wasn't right.", isError: true);
+                SetStatus(result?.Error ?? "That didn't match. Check your details and try again.", isError: true);
             }
         }
         catch
