@@ -35,11 +35,23 @@ public static class LimitEvaluator
     /// is never actually set by any reachable UI action server-side, so it
     /// always reads as 0 - real per-app weekly caps live in WeeklyRules,
     /// the same table the website/mobile editors write to.</summary>
-    public static int GetWeeklyLimitSeconds(string identifier, PlanDto? plan)
+    public static int GetWeeklyLimitSeconds(string identifier, PlanDto? plan, DateTime? now = null)
     {
         if (plan == null) return 0;
         var rule = plan.WeeklyRules.FirstOrDefault(r => r.Domain == identifier);
-        return rule?.LimitMinutes is { } limitMinutes ? limitMinutes * 60 : 0;
+        int limit = rule?.LimitMinutes is { } limitMinutes ? limitMinutes * 60 : 0;
+        // On a Weekly Limit plan, minutes earned today go onto the week's cap.
+        return plan.ActiveIdea == 2 ? WithBonus(limit, identifier, plan, now) : limit;
+    }
+
+    /// <summary>A limit with today's earned minutes on top - only a limit
+    /// that exists: a bonus never turns "no limit" or a blocked day into
+    /// minutes. The same rule as the phone's and the extension's
+    /// withBonus.</summary>
+    public static int WithBonus(int limitSeconds, string identifier, PlanDto plan, DateTime? now = null)
+    {
+        if (limitSeconds <= 0 || plan.FetchedOn.Date != (now ?? DateTime.Now).Date) return limitSeconds;
+        return limitSeconds + (plan.BonusToday.TryGetValue(identifier, out var minutes) ? minutes : 0) * 60;
     }
 
     /// <summary>Returns the applicable daily limit in seconds for this
@@ -50,7 +62,7 @@ public static class LimitEvaluator
     {
         if (plan == null || plan.ActiveIdea == 0) return 0;
         if (plan.ActiveIdea == 1) return 0; // Complete Break has no separate daily concept - see IsLimitReached
-        if (plan.ActiveIdea == 2) return GetWeeklyLimitSeconds(identifier, plan);
+        if (plan.ActiveIdea == 2) return GetWeeklyLimitSeconds(identifier, plan, now);
 
         // Daily Limit (3) and Custom Schedule (4) both check per-app/per-day
         // rules first, falling back to the flat daily limit when this app
@@ -67,9 +79,9 @@ public static class LimitEvaluator
             if (rule != null)
             {
                 if (rule.IsCompletelyBlocked) return 0;
-                if (rule.LimitMinutes is { } limitMinutes) return limitMinutes * 60;
+                if (rule.LimitMinutes is { } limitMinutes) return WithBonus(limitMinutes * 60, identifier, plan, now);
             }
-            return (plan.DailyLimitMinutes ?? 0) * 60;
+            return WithBonus((plan.DailyLimitMinutes ?? 0) * 60, identifier, plan, now);
         }
 
         return (plan.DailyLimitMinutes ?? 0) * 60;
@@ -107,11 +119,27 @@ public static class LimitEvaluator
         if (plan == null || (plan.ActiveIdea != 3 && plan.ActiveIdea != 4)) return false;
         int currentDjangoDay = GetLogicalDjangoDay(resetHour, now);
         var rule = plan.CustomRules.FirstOrDefault(r => r.Domain == identifier && r.DayOfWeek == currentDjangoDay);
-        if (rule?.WindowStart is not { } start || rule.WindowEnd is not { } end) return false;
+        if (rule == null) return false;
+        var windows = Windows(rule);
+        if (windows.Count == 0) return false;
 
         var nowTimeOfDay = (now ?? DateTime.Now).TimeOfDay;
-        bool insideWindow = nowTimeOfDay >= start && nowTimeOfDay < end;
+        bool insideWindow = windows.Any(w => nowTimeOfDay >= w.Start && nowTimeOfDay < w.End);
         return rule.WindowIsBlock ? insideWindow : !insideWindow;
+    }
+
+    /// <summary>Every window the rule's day has (up to three, one mode) - or
+    /// just WindowStart/WindowEnd from a server that predates more than one.
+    /// A window that can't be read is left out rather than guessed at.</summary>
+    private static List<(TimeSpan Start, TimeSpan End)> Windows(CustomRuleDto rule)
+    {
+        var windows = new List<(TimeSpan Start, TimeSpan End)>();
+        foreach (var w in rule.Windows)
+        {
+            if (TimeSpan.TryParse(w.Start, out var s) && TimeSpan.TryParse(w.End, out var e) && e > s) windows.Add((s, e));
+        }
+        if (windows.Count == 0 && rule.WindowStart is { } start && rule.WindowEnd is { } end) windows.Add((start, end));
+        return windows;
     }
 
     /// <summary>Reason codes mirror background.js's isLimitReached exactly -
@@ -135,7 +163,7 @@ public static class LimitEvaluator
         if (IsBlockedToday(identifier, plan, resetHour, now)) return BlockReason.BlockedDay;
         if (IsBlockedByWindowNow(identifier, plan, resetHour, now)) return BlockReason.TimeWindow;
 
-        int weeklyLimitSeconds = GetWeeklyLimitSeconds(identifier, plan);
+        int weeklyLimitSeconds = GetWeeklyLimitSeconds(identifier, plan, now);
         bool weeklyReached = weeklyLimitSeconds > 0 && weeklySecondsSoFar >= weeklyLimitSeconds;
 
         if (plan.ActiveIdea == 2) return weeklyReached ? BlockReason.WeeklyLimit : null;

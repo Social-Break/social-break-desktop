@@ -170,6 +170,9 @@ public class SocialBreakApiClient
     {
         if (minutesByDay.Count == 0) return null;
         using var response = await _http.PostAsJsonAsync("/api/report-usage/", minutesByDay, ct);
+        // A refusal (signed out) throws like any failed read, so the days stay
+        // pending instead of being taken as sent.
+        response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<ReportUsageResponse>(cancellationToken: ct);
     }
 

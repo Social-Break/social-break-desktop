@@ -94,6 +94,21 @@ public class CustomRuleDto
 
     [JsonPropertyName("window_is_block")]
     public bool WindowIsBlock { get; set; }
+
+    // Every window the day has - up to three, all of WindowIsBlock's kind -
+    // as "HH:MM" strings. The first is also in WindowStart/WindowEnd above;
+    // empty from a server that predates more than one.
+    [JsonPropertyName("windows")]
+    public List<WindowDto> Windows { get; set; } = new();
+}
+
+public class WindowDto
+{
+    [JsonPropertyName("start")]
+    public string Start { get; set; } = "";
+
+    [JsonPropertyName("end")]
+    public string End { get; set; } = "";
 }
 
 // WeeklyAppRuleDomainSerializer: same domain-sourced-from-media_item.url
@@ -132,6 +147,16 @@ public class PlanDto
 
     [JsonPropertyName("weekly_rules")]
     public List<WeeklyRuleDto> WeeklyRules { get; set; } = new();
+
+    // Minutes earned today by ticking habits, by app identifier - added to
+    // that app's limit today, as on the phone.
+    [JsonPropertyName("bonus_today")]
+    public Dictionary<string, int> BonusToday { get; set; } = new();
+
+    // The day this plan was fetched: "today" in BonusToday means that day, so
+    // a plan kept past midnight without a fresh sync earns nothing new.
+    [JsonIgnore]
+    public DateTime FetchedOn { get; set; } = DateTime.Today;
 }
 
 public class ReportUsageResponse

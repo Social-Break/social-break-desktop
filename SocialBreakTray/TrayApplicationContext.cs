@@ -250,6 +250,15 @@ public class TrayApplicationContext : ApplicationContext
             _trackedApps = allMedia.Where(m => m.SourceType == "desktop_app" && m.IsActive).ToList();
             _plan = await _apiClient.GetPlanAsync();
         }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            // Signed out on the website ("Sign out everywhere"), or the account
+            // is gone: the token opens nothing any more. Say so and ask to
+            // sign in again, rather than carry on enforcing rules nobody can
+            // see or change from here.
+            SignedOut();
+            return;
+        }
         catch
         {
             // Network hiccup - keep using whatever was cached from the last
@@ -396,6 +405,16 @@ public class TrayApplicationContext : ApplicationContext
             // there's nothing else useful to do here - the tray menu item
             // just silently no-ops rather than crashing the app.
         }
+    }
+
+    private void SignedOut()
+    {
+        _heartbeatTimer.Stop();
+        _syncTimer.Stop();
+        MessageBox.Show(
+            "You've been signed out of Social Break on this computer. Sign in again to keep your limits here.",
+            "Social Break", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        LogOut();
     }
 
     private void LogOut()

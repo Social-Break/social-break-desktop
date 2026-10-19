@@ -445,4 +445,73 @@ public class LimitEvaluatorTests
         Assert.Equal("daily_limit", LimitEvaluator.BlockReason.DailyLimit);
         Assert.Equal("weekly_limit", LimitEvaluator.BlockReason.WeeklyLimit);
     }
+
+    // ---- Several windows a day (up to three, one mode), from `windows`. ----
+
+    private static CustomRuleDto Windowed(int day, bool isBlock, params (string Start, string End)[] windows)
+    {
+        var rule = Rule(day, windowStart: TimeSpan.Parse(windows[0].Start), windowEnd: TimeSpan.Parse(windows[0].End), windowIsBlock: isBlock);
+        rule.Windows = windows.Select(w => new WindowDto { Start = w.Start, End = w.End }).ToList();
+        return rule;
+    }
+
+    [Fact]
+    public void Windows_AllowMode_InsideTheSecondWindowIsAllowed()
+    {
+        var plan = Plan(4, customRules: new() { Windowed(Wednesday, false, ("07:00", "08:00"), ("11:30", "12:30")) });
+        Assert.False(LimitEvaluator.IsBlockedByWindowNow(App, plan, 3, WedNoon));
+    }
+
+    [Fact]
+    public void Windows_AllowMode_OutsideEveryWindowIsBlocked()
+    {
+        var plan = Plan(4, customRules: new() { Windowed(Wednesday, false, ("07:00", "08:00"), ("19:00", "21:00")) });
+        Assert.True(LimitEvaluator.IsBlockedByWindowNow(App, plan, 3, WedNoon));
+    }
+
+    [Fact]
+    public void Windows_BlockMode_InsideTheThirdWindowIsBlocked()
+    {
+        var plan = Plan(4, customRules: new() { Windowed(Wednesday, true, ("07:00", "08:00"), ("09:00", "10:00"), ("11:00", "13:00")) });
+        Assert.True(LimitEvaluator.IsBlockedByWindowNow(App, plan, 3, WedNoon));
+    }
+
+    // ---- Minutes earned from habits, today only, on a limit that exists. ----
+
+    private static PlanDto WithEarned(PlanDto plan, int minutes, DateTime fetchedOn)
+    {
+        plan.BonusToday = new Dictionary<string, int> { [App] = minutes };
+        plan.FetchedOn = fetchedOn.Date;
+        return plan;
+    }
+
+    [Fact]
+    public void Bonus_AddsToTodaysDailyLimit()
+    {
+        var plan = WithEarned(Plan(3, dailyLimitMinutes: 60), 15, WedNoon);
+        Assert.Equal(75 * 60, LimitEvaluator.GetDailyLimitSeconds(App, plan, 3, WedNoon));
+    }
+
+    [Fact]
+    public void Bonus_FromAnotherDayIsIgnored()
+    {
+        var plan = WithEarned(Plan(3, dailyLimitMinutes: 60), 15, MonNoon);
+        Assert.Equal(60 * 60, LimitEvaluator.GetDailyLimitSeconds(App, plan, 3, WedNoon));
+    }
+
+    [Fact]
+    public void Bonus_NeverTurnsNoLimitIntoMinutes()
+    {
+        var plan = WithEarned(Plan(3, dailyLimitMinutes: 0), 15, WedNoon);
+        Assert.Equal(0, LimitEvaluator.GetDailyLimitSeconds(App, plan, 3, WedNoon));
+    }
+
+    [Fact]
+    public void Bonus_GoesOnTheWeeklyCapOnlyOnWeeklyLimit()
+    {
+        var weekly = WithEarned(Plan(2, weeklyRules: new() { WeeklyRule(120) }), 15, WedNoon);
+        Assert.Equal(135 * 60, LimitEvaluator.GetWeeklyLimitSeconds(App, weekly, WedNoon));
+        var mix = WithEarned(Plan(4, weeklyRules: new() { WeeklyRule(120) }), 15, WedNoon);
+        Assert.Equal(120 * 60, LimitEvaluator.GetWeeklyLimitSeconds(App, mix, WedNoon));
+    }
 }
