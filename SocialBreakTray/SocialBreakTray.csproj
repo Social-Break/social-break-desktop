@@ -20,6 +20,14 @@
     <Version>1.0.6</Version>
   </PropertyGroup>
 
+  <!-- A release build names no folder on the machine it was built on: no
+       debug-file path (which would carry the builder's Windows user name)
+       and source paths mapped to a neutral root. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <PathMap>$(MSBuildProjectDirectory)=C:\SocialBreakTray</PathMap>
+  </PropertyGroup>
+
   <ItemGroup>
     <!-- <ApplicationIcon> only stamps the icon into the exe's Win32 resource
          group, which is reachable at runtime solely via
