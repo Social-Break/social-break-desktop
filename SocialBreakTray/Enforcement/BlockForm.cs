@@ -1,3 +1,4 @@
+using static SocialBreakTray.Tr;
 using System.Runtime.InteropServices;
 
 namespace SocialBreakTray.Enforcement;
@@ -52,11 +53,11 @@ public class BlockForm : Form
     // already shows what site you're on.
     private static readonly Dictionary<string, string> ReasonSentenceFormats = new()
     {
-        [LimitEvaluator.BlockReason.CompleteBreak] = "You're on a Complete Break, so {0} is fully paused.",
-        [LimitEvaluator.BlockReason.BlockedDay] = "{0} is blocked today, based on your Custom Schedule.",
-        [LimitEvaluator.BlockReason.TimeWindow] = "{0} is restricted right now, based on the time window you set for it.",
-        [LimitEvaluator.BlockReason.DailyLimit] = "You've used up your daily time limit for {0}.",
-        [LimitEvaluator.BlockReason.WeeklyLimit] = "You've used up your weekly time limit for {0}.",
+        [LimitEvaluator.BlockReason.CompleteBreak] = T("You're on a Complete Break, so {0} is fully paused.", "Κάνεις πλήρες διάλειμμα, οπότε το {0} είναι σε παύση."),
+        [LimitEvaluator.BlockReason.BlockedDay] = T("{0} is blocked today, based on your Custom Schedule.", "Το {0} είναι μπλοκαρισμένο σήμερα, σύμφωνα με το πρόγραμμά σου."),
+        [LimitEvaluator.BlockReason.TimeWindow] = T("{0} is restricted right now, based on the time window you set for it.", "Το {0} δεν επιτρέπεται τώρα, σύμφωνα με τις ώρες που όρισες."),
+        [LimitEvaluator.BlockReason.DailyLimit] = T("You've used up your daily time limit for {0}.", "Χρησιμοποίησες όλο τον χρόνο της μέρας για το {0}."),
+        [LimitEvaluator.BlockReason.WeeklyLimit] = T("You've used up your weekly time limit for {0}.", "Χρησιμοποίησες όλο τον χρόνο της εβδομάδας για το {0}."),
     };
 
     public BlockForm(string appDisplayName, nint targetWindowHandle, string blockReason, bool isRepeatPrompt = false)
@@ -70,17 +71,17 @@ public class BlockForm : Form
 
         var titleLabel = new Label
         {
-            Text = "Time's up.",
+            Text = T("Time's up.", "Ο χρόνος τελείωσε."),
             ForeColor = Color.FromArgb(0xf3, 0x8b, 0xa8),
             Font = new Font("Segoe UI", 32, FontStyle.Bold),
             AutoSize = true,
         };
 
-        var reasonFormat = ReasonSentenceFormats.GetValueOrDefault(blockReason, "You've reached your limit for {0}.");
+        var reasonFormat = ReasonSentenceFormats.GetValueOrDefault(blockReason, T("You've reached your limit for {0}.", "Έφτασες το όριο για το {0}."));
         var reasonSentence = string.Format(reasonFormat, appDisplayName);
         var bodyText = isRepeatPrompt
-            ? $"{reasonSentence} You can keep going, or close it now."
-            : $"{reasonSentence} Take a moment before switching back.";
+            ? reasonSentence + T(" You can keep going, or close it now.", " Μπορείς να συνεχίσεις ή να το κλείσεις τώρα.")
+            : reasonSentence + T(" Take a moment before switching back.", " Πάρε μια στιγμή πριν γυρίσεις πίσω.");
         var bodyLabel = new Label
         {
             Text = bodyText,
@@ -92,7 +93,7 @@ public class BlockForm : Form
 
         var continueButton = new Button
         {
-            Text = isRepeatPrompt ? "Continue nonetheless" : "Snooze 5 minutes",
+            Text = isRepeatPrompt ? T("Continue nonetheless", "Συνέχεια παρ' όλα αυτά") : T("Snooze 5 minutes", "Αναβολή 5 λεπτά"),
             AutoSize = true,
             Padding = new Padding(20, 10, 20, 10),
             BackColor = Color.FromArgb(0x31, 0x32, 0x44),
@@ -109,7 +110,7 @@ public class BlockForm : Form
 
         var closeButton = new Button
         {
-            Text = "Close Program",
+            Text = T("Close Program", "Κλείσιμο προγράμματος"),
             AutoSize = true,
             Padding = new Padding(20, 10, 20, 10),
             BackColor = Color.FromArgb(0x2a, 0x1b, 0x22),
@@ -121,8 +122,8 @@ public class BlockForm : Form
         {
             var confirm = MessageBox.Show(
                 this,
-                $"This will close {appDisplayName}. Continue?",
-                "Close Program",
+                T($"This will close {appDisplayName}. Continue?", $"Θα κλείσει το {appDisplayName}. Συνέχεια;"),
+                T("Close Program", "Κλείσιμο προγράμματος"),
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning,
                 MessageBoxDefaultButton.Button2);

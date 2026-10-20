@@ -1,3 +1,4 @@
+using static SocialBreakTray.Tr;
 using System.Diagnostics;
 
 using SocialBreakTray.Api;
@@ -37,9 +38,9 @@ internal class LoginForm : DarkForm
     private const int FieldHeight = 44;
 
     private readonly SocialBreakApiClient _apiClient;
-    private readonly RoundedField _usernameField = new("Username or email", FieldWidth, FieldHeight);
-    private readonly RoundedField _passwordField = new("Password", FieldWidth, FieldHeight);
-    private readonly RoundedField _codeField = new("Connect code", FieldWidth, FieldHeight);
+    private readonly RoundedField _usernameField = new(T("Username or email", "Όνομα χρήστη ή email"), FieldWidth, FieldHeight);
+    private readonly RoundedField _passwordField = new(T("Password", "Κωδικός πρόσβασης"), FieldWidth, FieldHeight);
+    private readonly RoundedField _codeField = new(T("Connect code", "Κωδικός σύνδεσης"), FieldWidth, FieldHeight);
     private readonly LinkLabel _codeHelp = new();
     private readonly LinkLabel _modeLink = new();
     private readonly Label _statusLabel = new();
@@ -75,7 +76,7 @@ internal class LoginForm : DarkForm
 
         var heading = new Label
         {
-            Text = "Log in to continue",
+            Text = T("Log in to continue", "Συνδέσου για να συνεχίσεις"),
             ForeColor = Theme.TextPrimary,
             Font = new Font(Theme.UiFont.FontFamily, 14f, FontStyle.Regular),
             AutoSize = false,
@@ -87,7 +88,7 @@ internal class LoginForm : DarkForm
 
         var subheading = new Label
         {
-            Text = "Use the same account as the website.",
+            Text = T("Use the same account as the website.", "Με τον ίδιο λογαριασμό όπως στον ιστότοπο."),
             ForeColor = Theme.TextMuted,
             AutoSize = false,
             TextAlign = ContentAlignment.MiddleCenter,
@@ -96,7 +97,7 @@ internal class LoginForm : DarkForm
         };
         y += 20 + 26;
 
-        _browserButton.Text = "Sign in with your browser";
+        _browserButton.Text = T("Sign in with your browser", "Σύνδεση μέσω browser");
         _browserButton.Location = new Point(Pad, y);
         _browserButton.Size = new Size(FieldWidth, 40);
         _browserButton.BackColor = Theme.ButtonGreen;
@@ -107,7 +108,7 @@ internal class LoginForm : DarkForm
         _browserButton.Click += async (_, _) => await OnBrowserSignInAsync();
         y += 40 + 16;
 
-        _dividerLabel.Text = "or type your details";
+        _dividerLabel.Text = T("or type your details", "ή γράψε τα στοιχεία σου");
         _dividerLabel.ForeColor = Theme.TextMuted;
         _dividerLabel.AutoSize = false;
         _dividerLabel.TextAlign = ContentAlignment.MiddleCenter;
@@ -140,8 +141,8 @@ internal class LoginForm : DarkForm
         // and telling someone to go and find a page is only half an answer
         // when the app can just open it. This takes the space the password
         // field leaves behind, so it costs no height at all.
-        const string helpText = "Codes are made on the website. Open the page that makes one";
-        const string helpLink = "Open the page that makes one";
+        var helpText = T("Codes are made on the website. Open the page that makes one", "Οι κωδικοί είναι στον ιστότοπο. Άνοιξε τη σελίδα");
+        var helpLink = T("Open the page that makes one", "Άνοιξε τη σελίδα");
         _codeHelp.Text = helpText;
         _codeHelp.LinkArea = new LinkArea(helpText.IndexOf(helpLink, StringComparison.Ordinal), helpLink.Length);
         _codeHelp.ForeColor = Theme.TextSecondary;
@@ -160,13 +161,13 @@ internal class LoginForm : DarkForm
         {
             if (!TryOpenUrl(SocialBreakApiClient.ConnectCodePageUrl))
             {
-                SetStatus("Couldn't open your browser. Go to social-break.com and open Trackers.", isError: true);
+                SetStatus(T("Couldn't open your browser. Go to social-break.com and open Trackers.", "Δεν άνοιξε ο browser. Πήγαινε στο social-break.com και άνοιξε τους Μετρητές."), isError: true);
             }
         };
 
         // Quieter than the browser button on purpose: both work, one of them
         // is the one to try first.
-        _loginButton.Text = "Log In";
+        _loginButton.Text = T("Log In", "Σύνδεση");
         _loginButton.Location = new Point(Pad, y);
         _loginButton.Size = new Size(FieldWidth, 40);
         _loginButton.BackColor = Theme.Card;
@@ -222,8 +223,8 @@ internal class LoginForm : DarkForm
         _codeField.Visible = codeMode;
         _codeHelp.Visible = codeMode;
 
-        _loginButton.Text = codeMode ? "Connect" : "Log In";
-        _dividerLabel.Text = codeMode ? "or paste a connect code" : "or type your details";
+        _loginButton.Text = codeMode ? T("Connect", "Σύνδεση") : T("Log In", "Σύνδεση");
+        _dividerLabel.Text = codeMode ? T("or paste a connect code", "ή επικόλλησε κωδικό σύνδεσης") : T("or type your details", "ή γράψε τα στοιχεία σου");
         _modeLink.Text = ModeLinkText();
 
         SetStatus("", isError: false);
@@ -263,8 +264,8 @@ internal class LoginForm : DarkForm
     }
 
     private string ModeLinkText() => _codeMode
-        ? "Sign in with a password instead"
-        : "Can't open a browser? Use a connect code";
+        ? T("Sign in with a password instead", "Σύνδεση με κωδικό πρόσβασης")
+        : T("Can't open a browser? Use a connect code", "Χωρίς browser; Με κωδικό σύνδεσης");
 
     /// <summary>Everything off while a browser approval is outstanding: two
     /// half-finished sign-ins racing each other is nobody's idea of a login
@@ -276,7 +277,7 @@ internal class LoginForm : DarkForm
         _usernameField.Enabled = !busy;
         _passwordField.Enabled = !busy;
         _codeField.Enabled = !busy;
-        _modeLink.Text = busy ? "Cancel" : ModeLinkText();
+        _modeLink.Text = busy ? T("Cancel", "Ακύρωση") : ModeLinkText();
     }
 
     /// <summary>
@@ -288,7 +289,7 @@ internal class LoginForm : DarkForm
     private async Task OnBrowserSignInAsync()
     {
         SetBusy(true);
-        SetStatus("Opening your browser...", isError: false);
+        SetStatus(T("Opening your browser...", "Άνοιγμα του browser..."), isError: false);
 
         DeviceAuthStartResponse? start;
         try
@@ -297,28 +298,28 @@ internal class LoginForm : DarkForm
         }
         catch
         {
-            SetStatus("Couldn't reach the server. Try again.", isError: true);
+            SetStatus(T("Couldn't reach the server. Try again.", "Δεν βρέθηκε ο διακομιστής. Δοκίμασε ξανά."), isError: true);
             SetBusy(false);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(start?.DeviceCode) || string.IsNullOrWhiteSpace(start?.ApprovalUrl))
         {
-            SetStatus("Couldn't start that just now. Try your password instead.", isError: true);
+            SetStatus(T("Couldn't start that just now. Try your password instead.", "Δεν ξεκίνησε τώρα. Δοκίμασε με τον κωδικό πρόσβασης."), isError: true);
             SetBusy(false);
             return;
         }
 
         if (!TryOpenUrl(start.ApprovalUrl))
         {
-            SetStatus("Couldn't open your browser. Use your password, or a connect code.", isError: true);
+            SetStatus(T("Couldn't open your browser. Use your password, or a connect code.", "Δεν άνοιξε ο browser. Χρησιμοποίησε τον κωδικό πρόσβασης ή κωδικό σύνδεσης."), isError: true);
             SetBusy(false);
             return;
         }
 
         string? token = null;
         _waiting = new CancellationTokenSource();
-        SetStatus("Waiting for you to approve it in your browser...", isError: false);
+        SetStatus(T("Waiting for you to approve it in your browser...", "Περιμένει να το εγκρίνεις στον browser..."), isError: false);
 
         try
         {
@@ -375,18 +376,18 @@ internal class LoginForm : DarkForm
                     if (!string.IsNullOrWhiteSpace(poll.Token)) return poll.Token;
                     return null;
                 case "denied":
-                    SetStatus("That was turned down in the browser. Nothing is connected.", isError: true);
+                    SetStatus(T("That was turned down in the browser. Nothing is connected.", "Απορρίφθηκε στον browser. Δεν συνδέθηκε τίποτα."), isError: true);
                     return null;
                 case null:
                 case "pending":
                     continue;
                 default:
-                    SetStatus("That approval link ran out. Press the button again for a fresh one.", isError: true);
+                    SetStatus(T("That approval link ran out. Press the button again for a fresh one.", "Ο σύνδεσμος έγκρισης έληξε. Πάτα ξανά το κουμπί για καινούριο."), isError: true);
                     return null;
             }
         }
 
-        SetStatus("Nobody approved it in time. Press the button again for a fresh link.", isError: true);
+        SetStatus(T("Nobody approved it in time. Press the button again for a fresh link.", "Δεν εγκρίθηκε εγκαίρως. Πάτα ξανά το κουμπί για καινούριο σύνδεσμο."), isError: true);
         return null;
     }
 
@@ -406,11 +407,11 @@ internal class LoginForm : DarkForm
         var code = _codeField.Box.Text.Trim();
         if (string.IsNullOrEmpty(code))
         {
-            SetStatus("Enter the code from the website.", isError: true);
+            SetStatus(T("Enter the code from the website.", "Γράψε τον κωδικό από τον ιστότοπο."), isError: true);
             return;
         }
 
-        SetStatus("Connecting...", isError: false);
+        SetStatus(T("Connecting...", "Σύνδεση..."), isError: false);
         _loginButton.Enabled = false;
 
         try
@@ -427,12 +428,12 @@ internal class LoginForm : DarkForm
             }
             else
             {
-                SetStatus(result?.Error ?? "That code didn't work. Get a fresh one from the website.", isError: true);
+                SetStatus(result?.Error ?? T("That code didn't work. Get a fresh one from the website.", "Ο κωδικός δεν δούλεψε. Πάρε έναν καινούριο από τον ιστότοπο."), isError: true);
             }
         }
         catch
         {
-            SetStatus("Couldn't reach the server. Try again.", isError: true);
+            SetStatus(T("Couldn't reach the server. Try again.", "Δεν βρέθηκε ο διακομιστής. Δοκίμασε ξανά."), isError: true);
         }
         finally
         {
@@ -447,11 +448,11 @@ internal class LoginForm : DarkForm
 
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         {
-            SetStatus("Enter your username or email, and your password.", isError: true);
+            SetStatus(T("Enter your username or email, and your password.", "Γράψε το όνομα χρήστη ή το email σου και τον κωδικό πρόσβασης."), isError: true);
             return;
         }
 
-        SetStatus("Logging in...", isError: false);
+        SetStatus(T("Logging in...", "Σύνδεση..."), isError: false);
         _loginButton.Enabled = false;
 
         try
@@ -466,12 +467,12 @@ internal class LoginForm : DarkForm
             }
             else
             {
-                SetStatus(result?.Error ?? "That didn't match. Check your details and try again.", isError: true);
+                SetStatus(result?.Error ?? T("That didn't match. Check your details and try again.", "Δεν ταιριάζουν. Έλεγξε τα στοιχεία σου και δοκίμασε ξανά."), isError: true);
             }
         }
         catch
         {
-            SetStatus("Couldn't reach the server. Try again.", isError: true);
+            SetStatus(T("Couldn't reach the server. Try again.", "Δεν βρέθηκε ο διακομιστής. Δοκίμασε ξανά."), isError: true);
         }
         finally
         {

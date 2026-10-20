@@ -1,3 +1,4 @@
+using static SocialBreakTray.Tr;
 using System.Drawing.Drawing2D;
 using SocialBreakTray.Api;
 using SocialBreakTray.Auth;
@@ -52,7 +53,7 @@ internal class LiveTrackingForm : DarkForm
 
     public LiveTrackingForm(UsageAccumulator accumulator, Func<List<MediaItemDto>> getTrackedApps,
         Func<string?> getCurrentlyTrackedUrl, Func<PlanDto?> getPlan, int resetHour)
-        : base("Social Break - Live Tracking", showMinimize: true)
+        : base(T("Social Break - Live Tracking", "Social Break - Ζωντανή μέτρηση"), showMinimize: true)
     {
         _accumulator = accumulator;
         _getTrackedApps = getTrackedApps;
@@ -78,7 +79,7 @@ internal class LiveTrackingForm : DarkForm
 
         var title = new Label
         {
-            Text = "Live Tracking",
+            Text = T("Live Tracking", "Ζωντανή μέτρηση"),
             ForeColor = Theme.TextPrimary,
             Font = new Font("Segoe UI", 14, FontStyle.Bold),
             AutoSize = true,
@@ -87,7 +88,7 @@ internal class LiveTrackingForm : DarkForm
         };
         var subtitle = new Label
         {
-            Text = "Desktop apps counted against your Media List",
+            Text = T("Desktop apps counted against your Media List", "Εφαρμογές υπολογιστή από τη λίστα σου"),
             ForeColor = Theme.TextSecondary,
             Font = new Font("Segoe UI", 8.5f),
             AutoSize = true,
@@ -109,7 +110,7 @@ internal class LiveTrackingForm : DarkForm
 
         _emptyLabel = new Label
         {
-            Text = "No desktop apps on your Media List yet - add one on the website.",
+            Text = T("No desktop apps on your Media List yet - add one on the website.", "Δεν υπάρχουν ακόμα εφαρμογές υπολογιστή στη λίστα σου - πρόσθεσε μία στον ιστότοπο."),
             ForeColor = Theme.TextMuted,
             AutoSize = true,
             MaximumSize = new Size(400, 0),
@@ -127,7 +128,7 @@ internal class LiveTrackingForm : DarkForm
 
         var note = new Label
         {
-            Text = "Limits, rules, and your Media List are managed on the website.",
+            Text = T("Limits, rules, and your Media List are managed on the website.", "Τα όρια, οι κανόνες και η λίστα σου ρυθμίζονται στον ιστότοπο."),
             ForeColor = Theme.TextMuted,
             Font = new Font("Segoe UI", 8),
             AutoSize = true,
@@ -144,7 +145,7 @@ internal class LiveTrackingForm : DarkForm
         // given (see DarkCheckBox). Explicitly sized, since it owner-draws.
         var hideCheckbox = new DarkCheckBox
         {
-            Text = "Don't show this automatically on startup",
+            Text = T("Don't show this automatically on startup", "Να μην εμφανίζεται αυτόματα στην εκκίνηση"),
             Location = new Point(20, 434),
             Size = new Size(320, 20),
             Checked = TokenStore.IsWelcomeHiddenOnStartup(),
@@ -252,7 +253,7 @@ internal class LiveTrackingForm : DarkForm
 
             _liveLabel = new Label
             {
-                Text = "●  LIVE",
+                Text = T("●  LIVE", "●  ΖΩΝΤΑΝΑ"),
                 ForeColor = Theme.AccentGreen,
                 Font = new Font("Segoe UI", 8, FontStyle.Bold),
                 AutoSize = true,
@@ -287,13 +288,15 @@ internal class LiveTrackingForm : DarkForm
 
             if (dailyLimitSeconds > 0)
             {
-                _timeLabel.Text = $"{TrayApplicationContext.FormatTime(dailySeconds)} of {TrayApplicationContext.FormatTime(dailyLimitSeconds)} today  ·  {TrayApplicationContext.FormatTime(weeklySeconds)} this week";
+                _timeLabel.Text = T($"{TrayApplicationContext.FormatTime(dailySeconds)} of {TrayApplicationContext.FormatTime(dailyLimitSeconds)} today  ·  {TrayApplicationContext.FormatTime(weeklySeconds)} this week",
+                    $"{TrayApplicationContext.FormatTime(dailySeconds)} από {TrayApplicationContext.FormatTime(dailyLimitSeconds)} σήμερα  ·  {TrayApplicationContext.FormatTime(weeklySeconds)} αυτή την εβδομάδα");
                 _progressTrack.Percent = Math.Min(1.0, (double)dailySeconds / dailyLimitSeconds);
                 _progressTrack.Visible = true;
             }
             else
             {
-                _timeLabel.Text = $"{TrayApplicationContext.FormatTime(dailySeconds)} today  ·  {TrayApplicationContext.FormatTime(weeklySeconds)} this week";
+                _timeLabel.Text = T($"{TrayApplicationContext.FormatTime(dailySeconds)} today  ·  {TrayApplicationContext.FormatTime(weeklySeconds)} this week",
+                    $"{TrayApplicationContext.FormatTime(dailySeconds)} σήμερα  ·  {TrayApplicationContext.FormatTime(weeklySeconds)} αυτή την εβδομάδα");
                 _progressTrack.Visible = false;
             }
         }

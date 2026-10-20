@@ -1,3 +1,4 @@
+using static SocialBreakTray.Tr;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
@@ -61,7 +62,7 @@ public class SocialBreakApiClient
         //
         // 5xx stays generic: Django answers those with an HTML error page,
         // not JSON, so there is no message to read.
-        return await ReadLoginResultAsync(response, "That didn't match. Check your details and try again.", ct);
+        return await ReadLoginResultAsync(response, T("That didn't match. Check your details and try again.", "Δεν ταιριάζουν. Έλεγξε τα στοιχεία σου και δοκίμασε ξανά."), ct);
     }
 
     /// <summary>Shared by both ways in - a password and a connect code differ
@@ -72,7 +73,7 @@ public class SocialBreakApiClient
     {
         if ((int)response.StatusCode >= 500)
         {
-            return new LoginResponse { Error = $"Server error ({(int)response.StatusCode}). Please try again later." };
+            return new LoginResponse { Error = T($"Server error ({(int)response.StatusCode}). Please try again later.", $"Σφάλμα διακομιστή ({(int)response.StatusCode}). Δοκίμασε ξανά αργότερα.") };
         }
 
         if (!response.IsSuccessStatusCode)
@@ -104,7 +105,7 @@ public class SocialBreakApiClient
     {
         var payload = new { code, client_type = "desktop_app" };
         using var response = await _http.PostAsJsonAsync("/api/extension-connect/", payload, ct);
-        return await ReadLoginResultAsync(response, "That code didn't work. Get a fresh one from the website.", ct);
+        return await ReadLoginResultAsync(response, T("That code didn't work. Get a fresh one from the website.", "Ο κωδικός δεν δούλεψε. Πάρε έναν καινούριο από τον ιστότοπο."), ct);
     }
 
     /// <summary>

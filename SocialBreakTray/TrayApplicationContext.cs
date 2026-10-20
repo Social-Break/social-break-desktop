@@ -1,3 +1,4 @@
+using static SocialBreakTray.Tr;
 using SocialBreakTray.Api;
 using SocialBreakTray.Auth;
 using SocialBreakTray.Enforcement;
@@ -78,7 +79,7 @@ public class TrayApplicationContext : ApplicationContext
             // other tray icon.
             Icon = Theme.GetIcon(SystemInformation.SmallIconSize.Width) ?? SystemIcons.Application,
             Visible = true,
-            Text = "Social Break - not logged in",
+            Text = T("Social Break - not logged in", "Social Break - χωρίς σύνδεση"),
         };
         _trayIcon.ContextMenuStrip = BuildMenu();
         _trayIcon.DoubleClick += (_, _) => ShowLiveTracking();
@@ -165,18 +166,18 @@ public class TrayApplicationContext : ApplicationContext
         menu.Items.Add(_statusMenuItem);
         menu.Items.Add(new ToolStripSeparator());
 
-        menu.Items.Add("Pause tracking (5 min)", null, (_, _) => PauseTracking());
-        menu.Items.Add("Live Tracking", null, (_, _) => ShowLiveTracking());
-        menu.Items.Add("Open Website", null, (_, _) => OpenWebsite());
-        menu.Items.Add("About Social Break", null, (_, _) => ShowAbout());
+        menu.Items.Add(T("Pause tracking (5 min)", "Παύση μέτρησης (5 λεπτά)"), null, (_, _) => PauseTracking());
+        menu.Items.Add(T("Live Tracking", "Ζωντανή μέτρηση"), null, (_, _) => ShowLiveTracking());
+        menu.Items.Add(T("Open Website", "Άνοιγμα ιστότοπου"), null, (_, _) => OpenWebsite());
+        menu.Items.Add(T("About Social Break", "Σχετικά με το Social Break"), null, (_, _) => ShowAbout());
 
-        _startWithWindowsItem = new ToolStripMenuItem("Start with Windows") { CheckOnClick = true, Checked = AutoStart.IsEnabled() };
+        _startWithWindowsItem = new ToolStripMenuItem(T("Start with Windows", "Έναρξη με τα Windows")) { CheckOnClick = true, Checked = AutoStart.IsEnabled() };
         _startWithWindowsItem.Click += (_, _) => AutoStart.SetEnabled(_startWithWindowsItem.Checked);
         menu.Items.Add(_startWithWindowsItem);
 
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Log Out", null, (_, _) => LogOut());
-        menu.Items.Add("Quit", null, (_, _) => ExitApp());
+        menu.Items.Add(T("Log Out", "Αποσύνδεση"), null, (_, _) => LogOut());
+        menu.Items.Add(T("Quit", "Έξοδος"), null, (_, _) => ExitApp());
 
         return menu;
     }
@@ -282,7 +283,7 @@ public class TrayApplicationContext : ApplicationContext
         {
             if (DateTime.UtcNow < pausedUntil)
             {
-                SetTrayStatus("Paused");
+                SetTrayStatus(T("Paused", "Σε παύση"));
                 return;
             }
             _pausedUntilUtc = null;
@@ -290,27 +291,27 @@ public class TrayApplicationContext : ApplicationContext
 
         if (_idleProvider.GetIdleTime() >= TimeSpan.FromSeconds(60))
         {
-            SetTrayStatus("Idle");
+            SetTrayStatus(T("Idle", "Αδράνεια"));
             return;
         }
 
         var foreground = _foregroundProvider.GetForegroundProcess();
         if (foreground == null)
         {
-            SetTrayStatus("Active");
+            SetTrayStatus(T("Active", "Ενεργό"));
             return;
         }
 
         var match = _trackedApps.FirstOrDefault(m => string.Equals(m.Url, foreground.Value.ProcessName, StringComparison.OrdinalIgnoreCase));
         if (match == null)
         {
-            SetTrayStatus("Active");
+            SetTrayStatus(T("Active", "Ενεργό"));
             return;
         }
 
         if (_blockState.IsSnoozed(match.Url))
         {
-            SetTrayStatus($"Snoozed - {match.Name}");
+            SetTrayStatus(T($"Snoozed - {match.Name}", $"Σε αναβολή - {match.Name}"));
             return;
         }
 
@@ -319,7 +320,7 @@ public class TrayApplicationContext : ApplicationContext
 
         int dailySeconds = _accumulator.DailySeconds.GetValueOrDefault(match.Url);
         int weeklySeconds = _accumulator.WeeklySeconds.GetValueOrDefault(match.Url);
-        SetTrayStatus($"{match.Name} - {FormatTime(weeklySeconds)} this week");
+        SetTrayStatus(T($"{match.Name} - {FormatTime(weeklySeconds)} this week", $"{match.Name} - {FormatTime(weeklySeconds)} αυτή την εβδομάδα"));
 
         if (!_blockState.IsDismissedForToday(match.Url))
         {
@@ -358,7 +359,7 @@ public class TrayApplicationContext : ApplicationContext
     private void PauseTracking()
     {
         _pausedUntilUtc = DateTime.UtcNow.AddMinutes(5);
-        SetTrayStatus("Paused");
+        SetTrayStatus(T("Paused", "Σε παύση"));
     }
 
     /// <summary>Opens the Live Tracking window, or brings the existing one
@@ -412,7 +413,8 @@ public class TrayApplicationContext : ApplicationContext
         _heartbeatTimer.Stop();
         _syncTimer.Stop();
         MessageBox.Show(
-            "You've been signed out of Social Break on this computer. Sign in again to keep your limits here.",
+            T("You've been signed out of Social Break on this computer. Sign in again to keep your limits here.",
+              "Αποσυνδέθηκες από το Social Break σε αυτόν τον υπολογιστή. Συνδέσου ξανά για να ισχύουν τα όριά σου εδώ."),
             "Social Break", MessageBoxButtons.OK, MessageBoxIcon.Information);
         LogOut();
     }
@@ -447,6 +449,6 @@ public class TrayApplicationContext : ApplicationContext
         int h = totalSeconds / 3600;
         int m = (totalSeconds % 3600) / 60;
         int s = totalSeconds % 60;
-        return h > 0 ? $"{h}h {m}m" : $"{m}m {s}s";
+        return h > 0 ? $"{h}{H} {m}{M}" : $"{m}{M} {s}{S}";
     }
 }

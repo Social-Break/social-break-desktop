@@ -1,3 +1,4 @@
+using static SocialBreakTray.Tr;
 using SocialBreakTray.Ui;
 
 namespace SocialBreakTray;
@@ -30,20 +31,28 @@ internal class AboutForm : DarkForm
 
     private static readonly string[] Paragraphs =
     {
-        "This app tracks time in the desktop applications you've added to your " +
-        "Media List on the website - the same way the browser extension tracks " +
-        "browser tabs, just for apps outside your browser.",
+        T("This app tracks time in the desktop applications you've added to your " +
+          "Media List on the website - the same way the browser extension tracks " +
+          "browser tabs, just for apps outside your browser.",
+          "Αυτή η εφαρμογή μετράει τον χρόνο στις εφαρμογές υπολογιστή που πρόσθεσες " +
+          "στη λίστα σου στον ιστότοπο - όπως η επέκταση του browser μετράει τις " +
+          "καρτέλες, απλώς για εφαρμογές έξω από τον browser."),
 
-        "Your Media List, Plan, limits, and usage are all managed on the website, " +
-        "same as always - this app's Live Tracking window just shows what's " +
-        "currently being counted.",
+        T("Your Media List, Plan, limits, and usage are all managed on the website, " +
+          "same as always - this app's Live Tracking window just shows what's " +
+          "currently being counted.",
+          "Η λίστα σου, το πλάνο, τα όρια και η χρήση ρυθμίζονται όλα στον ιστότοπο, " +
+          "όπως πάντα - το παράθυρο Ζωντανή μέτρηση δείχνει απλώς τι μετριέται τώρα."),
 
-        "Look for the Social Break icon in your system tray (you may need to click " +
-        "the small arrow to show hidden icons) to pause tracking, check status, " +
-        "toggle Start with Windows, or log out.",
+        T("Look for the Social Break icon in your system tray (you may need to click " +
+          "the small arrow to show hidden icons) to pause tracking, check status, " +
+          "toggle Start with Windows, or log out.",
+          "Βρες το εικονίδιο του Social Break στη γραμμή εργασιών (ίσως χρειαστεί να " +
+          "πατήσεις το βελάκι για τα κρυφά εικονίδια) για παύση της μέτρησης, την " +
+          "κατάσταση, την έναρξη με τα Windows ή την αποσύνδεση."),
     };
 
-    public AboutForm() : base("About Social Break", showMinimize: false)
+    public AboutForm() : base(T("About Social Break", "Σχετικά με το Social Break"), showMinimize: false)
     {
         var icon = new Panel
         {
@@ -56,7 +65,7 @@ internal class AboutForm : DarkForm
         int textLeft = Pad + IconSize + 16;
         var heading = new Label
         {
-            Text = "Social Break is running",
+            Text = T("Social Break is running", "Το Social Break τρέχει"),
             ForeColor = Theme.TextPrimary,
             Font = new Font("Segoe UI", 15, FontStyle.Bold),
             AutoSize = true,
@@ -65,7 +74,7 @@ internal class AboutForm : DarkForm
         };
         var subheading = new Label
         {
-            Text = "Tracking desktop apps in the background",
+            Text = T("Tracking desktop apps in the background", "Μετράει εφαρμογές υπολογιστή στο παρασκήνιο"),
             ForeColor = Theme.TextMuted,
             Font = new Font("Segoe UI", 9),
             AutoSize = true,
@@ -112,7 +121,7 @@ internal class AboutForm : DarkForm
 
         var okButton = new Button
         {
-            Text = "Got it",
+            Text = T("Got it", "Εντάξει"),
             Location = new Point(Pad, y + 26),
             Size = new Size(BodyWidth, 40),
             BackColor = Theme.ButtonGreen,

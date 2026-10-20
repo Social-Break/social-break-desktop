@@ -1,3 +1,4 @@
+using static SocialBreakTray.Tr;
 using SocialBreakTray.Ui;
 
 namespace SocialBreakTray.Onboarding;
@@ -15,7 +16,7 @@ public class DisclosureForm : Form
 {
     public DisclosureForm()
     {
-        Text = "Social Break Desktop - Before You Continue";
+        Text = T("Social Break Desktop - Before You Continue", "Social Break για υπολογιστή - Πριν συνεχίσεις");
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -29,7 +30,7 @@ public class DisclosureForm : Form
 
         var heading = new Label
         {
-            Text = "What this app does",
+            Text = T("What this app does", "Τι κάνει αυτή η εφαρμογή"),
             ForeColor = Theme.TextPrimary,
             Font = new Font("Segoe UI", 13, FontStyle.Bold),
             AutoSize = true,
@@ -44,7 +45,7 @@ public class DisclosureForm : Form
         // risk). Matches the pattern already used in AboutForm/BlockForm.
         var body = new Label
         {
-            Text =
+            Text = T(
                 "Social Break Desktop tracks time in native applications - the same way the browser " +
                 "extension tracks browser tabs, just for apps outside your browser.\r\n\r\n" +
                 "It reads only the name of whichever application currently has focus, to check it against " +
@@ -55,6 +56,16 @@ public class DisclosureForm : Form
                 "you're away from your computer, and your login is encrypted on this device and never " +
                 "leaves it in plain text.\r\n\r\n" +
                 "You can pause tracking, log out, or quit entirely at any time from the tray icon.",
+                "Το Social Break για υπολογιστή μετράει τον χρόνο σε εφαρμογές - όπως η επέκταση " +
+                "μετράει τις καρτέλες του browser, απλώς για εφαρμογές έξω από τον browser.\r\n\r\n" +
+                "Διαβάζει μόνο το όνομα της εφαρμογής που είναι μπροστά σου, για να το συγκρίνει με τις " +
+                "εφαρμογές υπολογιστή της λίστας σου (που ρυθμίζεις στον ιστότοπο). Δεν διαβάζει " +
+                "πλήκτρα, ό,τι δείχνει η οθόνη, αρχεία, το πρόχειρο ή οτιδήποτε άλλο - και δεν " +
+                "αγγίζει εφαρμογές που δεν πρόσθεσες εσύ.\r\n\r\n" +
+                "Φαίνεται πάντα ως εικονίδιο στη γραμμή εργασιών, σταματάει μόνο του όταν λείπεις " +
+                "από τον υπολογιστή, και η σύνδεσή σου είναι κρυπτογραφημένη σε αυτή τη συσκευή και " +
+                "δεν φεύγει ποτέ από αυτήν ως απλό κείμενο.\r\n\r\n" +
+                "Μπορείς να σταματήσεις τη μέτρηση, να αποσυνδεθείς ή να το κλείσεις όποτε θες από το εικονίδιο."),
             ForeColor = Theme.TextSecondary,
             AutoSize = true,
             MaximumSize = new Size(400, 0),
@@ -62,7 +73,7 @@ public class DisclosureForm : Form
 
         var continueButton = new Button
         {
-            Text = "I Understand, Continue",
+            Text = T("I Understand, Continue", "Κατάλαβα, συνέχεια"),
             AutoSize = false,
             Size = new Size(400, 34),
             BackColor = Theme.ButtonGreen,
