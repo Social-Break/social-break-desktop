@@ -168,6 +168,10 @@ public class PlanDto
     // and no "continue". Null when there's no lock.
     [JsonPropertyName("locked_until")]
     public DateTimeOffset? LockedUntil { get; set; }
+
+    // Strict mode: no continuing past a block, no snooze, no pause.
+    [JsonPropertyName("strict_mode")]
+    public bool StrictMode { get; set; }
 }
 
 public class SharedUsageDto

@@ -279,8 +279,8 @@ public class TrayApplicationContext : ApplicationContext
         // at every one of the several early-return points above that path.
         _currentlyTrackingUrl = null;
 
-        // A lock can't be paused around.
-        if (_pausedUntilUtc is { } pausedUntil && !LimitEvaluator.IsLocked(_plan))
+        // A lock, or strict mode, can't be paused around.
+        if (_pausedUntilUtc is { } pausedUntil && !LimitEvaluator.IsLocked(_plan) && _plan?.StrictMode != true)
         {
             if (DateTime.UtcNow < pausedUntil)
             {
@@ -310,7 +310,8 @@ public class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        bool locked = LimitEvaluator.IsLocked(_plan);
+        // No way round a block: a lock, or strict mode.
+        bool locked = LimitEvaluator.IsLocked(_plan) || _plan?.StrictMode == true;
         if (!locked && _blockState.IsSnoozed(match.Url))
         {
             SetTrayStatus(T($"Snoozed - {match.Name}", $"Σε αναβολή - {match.Name}"));
@@ -339,10 +340,10 @@ public class TrayApplicationContext : ApplicationContext
     {
         if (_activeBlockForm is { IsDisposed: false }) return; // one at a time
 
-        bool isRepeat = blockReason != LimitEvaluator.BlockReason.Locked && _blockState.HasAlreadyBlockedToday(match.Url);
+        bool isRepeat = blockReason != LimitEvaluator.BlockReason.Locked && _plan?.StrictMode != true && _blockState.HasAlreadyBlockedToday(match.Url);
         _blockState.MarkBlockedToday(match.Url);
 
-        var block = new BlockForm(match.Name, windowHandle, blockReason, isRepeat, _plan?.LockedUntil);
+        var block = new BlockForm(match.Name, windowHandle, blockReason, isRepeat, _plan?.LockedUntil, _plan?.StrictMode == true);
         block.ContinueRequested += permanent =>
         {
             if (permanent)

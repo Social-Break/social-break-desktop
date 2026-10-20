@@ -60,7 +60,7 @@ public class BlockForm : Form
         [LimitEvaluator.BlockReason.WeeklyLimit] = T("You've used up your weekly time limit for {0}.", "Χρησιμοποίησες όλο τον χρόνο της εβδομάδας για το {0}."),
     };
 
-    public BlockForm(string appDisplayName, nint targetWindowHandle, string blockReason, bool isRepeatPrompt = false, DateTimeOffset? lockedUntil = null)
+    public BlockForm(string appDisplayName, nint targetWindowHandle, string blockReason, bool isRepeatPrompt = false, DateTimeOffset? lockedUntil = null, bool strict = false)
     {
         bool locked = blockReason == LimitEvaluator.BlockReason.Locked;
         FormBorderStyle = FormBorderStyle.None;
@@ -150,7 +150,7 @@ public class BlockForm : Form
             Anchor = AnchorStyles.None,
         };
         // A lock has no way round it - only closing the program.
-        if (!locked) buttonPanel.Controls.Add(continueButton);
+        if (!locked && !strict) buttonPanel.Controls.Add(continueButton);
         buttonPanel.Controls.Add(closeButton);
 
         var panel = new FlowLayoutPanel
