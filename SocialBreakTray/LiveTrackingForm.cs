@@ -185,8 +185,9 @@ internal class LiveTrackingForm : DarkForm
                 _cardList.Controls.Add(card);
             }
 
-            int daily = _accumulator.DailySeconds.GetValueOrDefault(app.Url);
-            int weekly = _accumulator.WeeklySeconds.GetValueOrDefault(app.Url);
+            // Shown as the one shared limit: this computer's time plus the others'.
+            int daily = _accumulator.DailySeconds.GetValueOrDefault(app.Url) + LimitEvaluator.ElsewhereSeconds(app.Url, plan, today: true);
+            int weekly = _accumulator.WeeklySeconds.GetValueOrDefault(app.Url) + LimitEvaluator.ElsewhereSeconds(app.Url, plan, today: false);
             int dailyLimit = LimitEvaluator.GetDailyLimitSeconds(app.Url, plan, _resetHour);
             bool isLive = string.Equals(app.Url, currentUrl, StringComparison.OrdinalIgnoreCase);
             card.UpdateData(daily, weekly, dailyLimit, isLive);

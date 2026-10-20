@@ -142,6 +142,24 @@ public static class LimitEvaluator
         return windows;
     }
 
+    /// <summary>What the other devices - the phone, the browser - have used of
+    /// this app today (or this week), in seconds, as last reported to the
+    /// server. This computer's own report is left out: it's counted live. Only
+    /// the server's today counts; a plan from before midnight says nothing
+    /// about the new day.</summary>
+    public static int ElsewhereSeconds(string identifier, PlanDto? plan, bool today, DateTime? now = null)
+    {
+        var shared = plan?.SharedUsage;
+        if (shared == null || !shared.Apps.TryGetValue(identifier, out var app)) return 0;
+        if (!DateOnly.TryParse(shared.Date, out var date)) return 0;
+        var current = DateOnly.FromDateTime(now ?? DateTime.Now);
+        if (today && date != current) return 0;
+        var monday = current.AddDays(-(((int)current.DayOfWeek + 6) % 7));
+        if (!today && date < monday) return 0;
+        var minutes = (today ? app.Today : app.Week).Where(kv => kv.Key != "desktop_app").Sum(kv => kv.Value);
+        return minutes * 60;
+    }
+
     /// <summary>Reason codes mirror background.js's isLimitReached exactly -
     /// keep both in sync if a new one is ever added on either side.</summary>
     public static class BlockReason
@@ -159,6 +177,9 @@ public static class LimitEvaluator
     public static string? IsLimitReached(string identifier, PlanDto? plan, int dailySecondsSoFar, int weeklySecondsSoFar, int resetHour, DateTime? now = null)
     {
         if (plan == null || plan.ActiveIdea == 0) return null;
+        // One limit, every device: the phone's and the browser's time count too.
+        dailySecondsSoFar += ElsewhereSeconds(identifier, plan, today: true, now);
+        weeklySecondsSoFar += ElsewhereSeconds(identifier, plan, today: false, now);
         if (plan.ActiveIdea == 1) return BlockReason.CompleteBreak; // Complete Break: always blocked, no accumulation needed
         if (IsBlockedToday(identifier, plan, resetHour, now)) return BlockReason.BlockedDay;
         if (IsBlockedByWindowNow(identifier, plan, resetHour, now)) return BlockReason.TimeWindow;

@@ -157,6 +157,30 @@ public class PlanDto
     // a plan kept past midnight without a fresh sync earns nothing new.
     [JsonIgnore]
     public DateTime FetchedOn { get; set; } = DateTime.Today;
+
+    // What each app has had today and this week on every device, by source,
+    // so the computer counts the phone's and the browser's time against the
+    // one shared limit. Null from a server that predates it.
+    [JsonPropertyName("shared_usage")]
+    public SharedUsageDto? SharedUsage { get; set; }
+}
+
+public class SharedUsageDto
+{
+    [JsonPropertyName("date")]
+    public string Date { get; set; } = "";
+
+    [JsonPropertyName("apps")]
+    public Dictionary<string, SharedAppDto> Apps { get; set; } = new();
+}
+
+public class SharedAppDto
+{
+    [JsonPropertyName("today")]
+    public Dictionary<string, int> Today { get; set; } = new();
+
+    [JsonPropertyName("week")]
+    public Dictionary<string, int> Week { get; set; } = new();
 }
 
 public class ReportUsageResponse

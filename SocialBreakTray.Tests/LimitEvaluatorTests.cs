@@ -514,4 +514,45 @@ public class LimitEvaluatorTests
         var mix = WithEarned(Plan(4, weeklyRules: new() { WeeklyRule(120) }), 15, WedNoon);
         Assert.Equal(120 * 60, LimitEvaluator.GetWeeklyLimitSeconds(App, mix, WedNoon));
     }
+
+    // ---- One limit, every device ----
+
+    private static PlanDto Shared(PlanDto plan, string date, int phoneToday, int phoneWeek, int ownToday = 0)
+    {
+        plan.SharedUsage = new SharedUsageDto
+        {
+            Date = date,
+            Apps = new()
+            {
+                [App] = new SharedAppDto
+                {
+                    Today = new() { ["mobile"] = phoneToday, ["desktop_app"] = ownToday },
+                    Week = new() { ["mobile"] = phoneWeek },
+                },
+            },
+        };
+        return plan;
+    }
+
+    [Fact]
+    public void Shared_ThePhonesTimeCountsTowardsTheLimitHere()
+    {
+        var plan = Shared(Plan(3, dailyLimitMinutes: 60), "2026-09-02", phoneToday: 40, phoneWeek: 40, ownToday: 99);
+        Assert.Null(LimitEvaluator.IsLimitReached(App, plan, 19 * 60, 0, 3, WedNoon));
+        Assert.Equal(LimitEvaluator.BlockReason.DailyLimit, LimitEvaluator.IsLimitReached(App, plan, 20 * 60, 0, 3, WedNoon));
+    }
+
+    [Fact]
+    public void Shared_YesterdaysNumbersDontCountToday()
+    {
+        var plan = Shared(Plan(3, dailyLimitMinutes: 60), "2026-09-01", phoneToday: 59, phoneWeek: 59);
+        Assert.Null(LimitEvaluator.IsLimitReached(App, plan, 10 * 60, 0, 3, WedNoon));
+    }
+
+    [Fact]
+    public void Shared_TheWeekCountsTheOtherDevicesWeek()
+    {
+        var plan = Shared(Plan(2, weeklyRules: new() { WeeklyRule(120) }), "2026-09-02", phoneToday: 0, phoneWeek: 100);
+        Assert.Equal(LimitEvaluator.BlockReason.WeeklyLimit, LimitEvaluator.IsLimitReached(App, plan, 0, 20 * 60, 3, WedNoon));
+    }
 }
