@@ -378,4 +378,40 @@ public class UsageAccumulatorTests : IDisposable
 
         Assert.Empty(acc.GetMinutesByDay());
     }
+
+    // ---- By the hour: when the time went, for the phone's clock ----
+
+    [Fact]
+    public void Hours_AreFiledUnderTheClockHourTheyHappenedIn()
+    {
+        var acc = NewAccumulator();
+        acc.AddSeconds(App, 600);                 // Wed 12:00
+        _clock = _clock.AddHours(9);              // Wed 21:00
+        acc.AddSeconds(App, 1800);
+        var hours = acc.GetHourlyMinutes()[App]["2026-09-02"];
+        Assert.Equal(24, hours.Length);
+        Assert.Equal(10, hours[12]);
+        Assert.Equal(30, hours[21]);
+        Assert.Equal(40, hours.Sum());
+    }
+
+    [Fact]
+    public void Hours_KeepTodayAndYesterdayOnly()
+    {
+        var acc = NewAccumulator();
+        acc.AddSeconds(App, 600);                 // Wed
+        _clock = _clock.AddDays(1);
+        acc.AddSeconds(App, 600);                 // Thu
+        _clock = _clock.AddDays(1);
+        acc.AddSeconds(App, 600);                 // Fri
+        var days = acc.GetHourlyMinutes()[App].Keys.OrderBy(k => k).ToList();
+        Assert.Equal(new[] { "2026-09-03", "2026-09-04" }, days);
+    }
+
+    [Fact]
+    public void Hours_SurviveARestart()
+    {
+        NewAccumulator().AddSeconds(App, 900);
+        Assert.Equal(15, NewAccumulator().GetHourlyMinutes()[App]["2026-09-02"][12]);
+    }
 }

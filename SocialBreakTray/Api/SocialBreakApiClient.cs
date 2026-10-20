@@ -167,10 +167,18 @@ public class SocialBreakApiClient
     /// re-sending a day the server already has replaces it instead of adding to
     /// it and a retry can't double-count.
     /// </summary>
-    public async Task<ReportUsageResponse?> ReportUsageAsync(Dictionary<string, Dictionary<string, int>> minutesByDay, CancellationToken ct = default)
+    public async Task<ReportUsageResponse?> ReportUsageAsync(
+        Dictionary<string, Dictionary<string, int>> minutesByDay,
+        Dictionary<string, Dictionary<string, int[]>>? minutesByHour = null,
+        CancellationToken ct = default)
     {
         if (minutesByDay.Count == 0) return null;
-        using var response = await _http.PostAsJsonAsync("/api/report-usage/", minutesByDay, ct);
+        // And when, hour by hour, under "hourly" - which a server that
+        // predates it reads as an app nobody has, and skips.
+        var payload = new Dictionary<string, object>();
+        foreach (var (identifier, days) in minutesByDay) payload[identifier] = days;
+        if (minutesByHour is { Count: > 0 }) payload["hourly"] = minutesByHour;
+        using var response = await _http.PostAsJsonAsync("/api/report-usage/", payload, ct);
         // A refusal (signed out) throws like any failed read, so the days stay
         // pending instead of being taken as sent.
         response.EnsureSuccessStatusCode();

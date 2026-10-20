@@ -13,6 +13,11 @@ internal class AccumulatorState
     /// while the app is running would otherwise be erased before it was ever
     /// sent as a day. Held here, on disk, until a report succeeds.</summary>
     public Dictionary<string, Dictionary<string, int>> PendingDays { get; set; } = new();
+    /// <summary>When the time went: seconds per hour of the clock (24 of
+    /// them, midnight first), by calendar date then identifier - so the
+    /// phone's clock can place computer time on its hours. Today and
+    /// yesterday are kept; yesterday may still have its last hours to send.</summary>
+    public Dictionary<string, Dictionary<string, int[]>> HourlySeconds { get; set; } = new();
     public string? LogicalDay { get; set; }       // ISO date string, e.g. "2026-08-07"
     public string? LogicalWeekMonday { get; set; } // ISO date string of that week's Monday
 }
@@ -78,7 +83,52 @@ public class UsageAccumulator
         ApplyRolloverIfNeeded();
         _state.DailySeconds[identifier] = _state.DailySeconds.GetValueOrDefault(identifier) + seconds;
         _state.WeeklySeconds[identifier] = _state.WeeklySeconds.GetValueOrDefault(identifier) + seconds;
+        AddToHour(identifier, seconds);
         Save();
+    }
+
+    private void AddToHour(string identifier, int seconds)
+    {
+        var now = _now();
+        var date = DateOnly.FromDateTime(now);
+        var day = date.ToString("yyyy-MM-dd");
+        var keep = new[] { day, date.AddDays(-1).ToString("yyyy-MM-dd") };
+        foreach (var old in _state.HourlySeconds.Keys.Where(k => !keep.Contains(k)).ToList()) _state.HourlySeconds.Remove(old);
+        if (!_state.HourlySeconds.TryGetValue(day, out var apps))
+        {
+            apps = new Dictionary<string, int[]>();
+            _state.HourlySeconds[day] = apps;
+        }
+        if (!apps.TryGetValue(identifier, out var hours) || hours.Length != 24)
+        {
+            hours = new int[24];
+            apps[identifier] = hours;
+        }
+        hours[now.Hour] += seconds;
+    }
+
+    /// <summary>Minutes per hour of the clock, by identifier then calendar
+    /// date, for report_media_usage's "hourly" part - rounded the same way
+    /// as the days.</summary>
+    public Dictionary<string, Dictionary<string, int[]>> GetHourlyMinutes()
+    {
+        var result = new Dictionary<string, Dictionary<string, int[]>>();
+        foreach (var (day, apps) in _state.HourlySeconds)
+        {
+            foreach (var (identifier, seconds) in apps)
+            {
+                if (seconds.Length != 24) continue;
+                var minutes = seconds.Select(s => (int)Math.Round(s / 60.0)).ToArray();
+                if (minutes.All(m => m == 0)) continue;
+                if (!result.TryGetValue(identifier, out var days))
+                {
+                    days = new Dictionary<string, int[]>();
+                    result[identifier] = days;
+                }
+                days[day] = minutes;
+            }
+        }
+        return result;
     }
 
     /// <summary>Weekly totals converted to whole minutes, for

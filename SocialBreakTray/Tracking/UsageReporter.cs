@@ -27,7 +27,7 @@ public class UsageReporter
 
         try
         {
-            await _apiClient.ReportUsageAsync(byDay, ct);
+            await _apiClient.ReportUsageAsync(byDay, _accumulator.GetHourlyMinutes(), ct);
             // Only now are finished days safe to forget. Clearing them before
             // the send succeeded would lose a day to a dropped connection -
             // exactly what the on-disk state exists to prevent.
