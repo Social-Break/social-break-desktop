@@ -18,9 +18,9 @@ namespace SocialBreakTray;
 /// </summary>
 public class TrayApplicationContext : ApplicationContext
 {
-    // Not yet user-configurable in this version (see UsageAccumulator's
-    // docstring) - matches the browser extension's own default resetHour.
-    private const int ResetHour = 3;
+    // A day runs midnight to midnight, as on the phone and in the browser
+    // extension, so a late session counts toward the same day everywhere.
+    private const int ResetHour = 0;
     private const int HeartbeatIntervalMs = 1000;
     private const int SyncIntervalMs = 10 * 60 * 1000; // 10 minutes, matches the extension's reportUsage alarm
 
