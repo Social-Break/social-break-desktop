@@ -60,8 +60,9 @@ public class BlockForm : Form
         [LimitEvaluator.BlockReason.WeeklyLimit] = T("You've used up your weekly time limit for {0}.", "Χρησιμοποίησες όλο τον χρόνο της εβδομάδας για το {0}."),
     };
 
-    public BlockForm(string appDisplayName, nint targetWindowHandle, string blockReason, bool isRepeatPrompt = false)
+    public BlockForm(string appDisplayName, nint targetWindowHandle, string blockReason, bool isRepeatPrompt = false, DateTimeOffset? lockedUntil = null)
     {
+        bool locked = blockReason == LimitEvaluator.BlockReason.Locked;
         FormBorderStyle = FormBorderStyle.None;
         WindowState = FormWindowState.Maximized;
         TopMost = true;
@@ -71,14 +72,16 @@ public class BlockForm : Form
 
         var titleLabel = new Label
         {
-            Text = T("Time's up.", "Ο χρόνος τελείωσε."),
+            Text = locked ? T("Locked.", "Κλειδωμένο.") : T("Time's up.", "Ο χρόνος τελείωσε."),
             ForeColor = Color.FromArgb(0xf3, 0x8b, 0xa8),
             Font = new Font("Segoe UI", 32, FontStyle.Bold),
             AutoSize = true,
         };
 
         var reasonFormat = ReasonSentenceFormats.GetValueOrDefault(blockReason, T("You've reached your limit for {0}.", "Έφτασες το όριο για το {0}."));
-        var reasonSentence = string.Format(reasonFormat, appDisplayName);
+        var reasonSentence = locked && lockedUntil is { } until
+            ? T($"You locked your apps until {until.ToLocalTime():HH:mm}.", $"Κλείδωσες τις εφαρμογές σου μέχρι τις {until.ToLocalTime():HH:mm}.")
+            : string.Format(reasonFormat, appDisplayName);
         var bodyText = isRepeatPrompt
             ? reasonSentence + T(" You can keep going, or close it now.", " Μπορείς να συνεχίσεις ή να το κλείσεις τώρα.")
             : reasonSentence + T(" Take a moment before switching back.", " Πάρε μια στιγμή πριν γυρίσεις πίσω.");
@@ -146,7 +149,8 @@ public class BlockForm : Form
             AutoSize = true,
             Anchor = AnchorStyles.None,
         };
-        buttonPanel.Controls.Add(continueButton);
+        // A lock has no way round it - only closing the program.
+        if (!locked) buttonPanel.Controls.Add(continueButton);
         buttonPanel.Controls.Add(closeButton);
 
         var panel = new FlowLayoutPanel

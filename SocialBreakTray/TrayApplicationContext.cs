@@ -279,7 +279,8 @@ public class TrayApplicationContext : ApplicationContext
         // at every one of the several early-return points above that path.
         _currentlyTrackingUrl = null;
 
-        if (_pausedUntilUtc is { } pausedUntil)
+        // A lock can't be paused around.
+        if (_pausedUntilUtc is { } pausedUntil && !LimitEvaluator.IsLocked(_plan))
         {
             if (DateTime.UtcNow < pausedUntil)
             {
@@ -309,7 +310,8 @@ public class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        if (_blockState.IsSnoozed(match.Url))
+        bool locked = LimitEvaluator.IsLocked(_plan);
+        if (!locked && _blockState.IsSnoozed(match.Url))
         {
             SetTrayStatus(T($"Snoozed - {match.Name}", $"Σε αναβολή - {match.Name}"));
             return;
@@ -322,7 +324,8 @@ public class TrayApplicationContext : ApplicationContext
         int weeklySeconds = _accumulator.WeeklySeconds.GetValueOrDefault(match.Url);
         SetTrayStatus(T($"{match.Name} - {FormatTime(weeklySeconds)} this week", $"{match.Name} - {FormatTime(weeklySeconds)} αυτή την εβδομάδα"));
 
-        if (!_blockState.IsDismissedForToday(match.Url))
+        // Neither "continue" nor a snooze holds against a lock.
+        if (locked || !_blockState.IsDismissedForToday(match.Url))
         {
             var blockReason = LimitEvaluator.IsLimitReached(match.Url, _plan, dailySeconds, weeklySeconds, ResetHour);
             if (blockReason != null)
@@ -336,10 +339,10 @@ public class TrayApplicationContext : ApplicationContext
     {
         if (_activeBlockForm is { IsDisposed: false }) return; // one at a time
 
-        bool isRepeat = _blockState.HasAlreadyBlockedToday(match.Url);
+        bool isRepeat = blockReason != LimitEvaluator.BlockReason.Locked && _blockState.HasAlreadyBlockedToday(match.Url);
         _blockState.MarkBlockedToday(match.Url);
 
-        var block = new BlockForm(match.Name, windowHandle, blockReason, isRepeat);
+        var block = new BlockForm(match.Name, windowHandle, blockReason, isRepeat, _plan?.LockedUntil);
         block.ContinueRequested += permanent =>
         {
             if (permanent)

@@ -555,4 +555,22 @@ public class LimitEvaluatorTests
         var plan = Shared(Plan(2, weeklyRules: new() { WeeklyRule(120) }), "2026-09-02", phoneToday: 0, phoneWeek: 100);
         Assert.Equal(LimitEvaluator.BlockReason.WeeklyLimit, LimitEvaluator.IsLimitReached(App, plan, 0, 20 * 60, 3, WedNoon));
     }
+
+    // ---- Lock now ----
+
+    [Fact]
+    public void Lock_BlocksWithNoTimeUsedAndNoLimit()
+    {
+        var plan = Plan(3, dailyLimitMinutes: 0);
+        plan.LockedUntil = new DateTimeOffset(WedNoon.AddHours(1));
+        Assert.Equal(LimitEvaluator.BlockReason.Locked, LimitEvaluator.IsLimitReached(App, plan, 0, 0, 3, WedNoon));
+    }
+
+    [Fact]
+    public void Lock_LetsGoWhenItEnds()
+    {
+        var plan = Plan(3, dailyLimitMinutes: 60);
+        plan.LockedUntil = new DateTimeOffset(WedNoon.AddMinutes(-1));
+        Assert.Null(LimitEvaluator.IsLimitReached(App, plan, 0, 0, 3, WedNoon));
+    }
 }

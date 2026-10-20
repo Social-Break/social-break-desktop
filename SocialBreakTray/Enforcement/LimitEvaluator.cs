@@ -142,6 +142,11 @@ public static class LimitEvaluator
         return windows;
     }
 
+    /// <summary>Lock now in force: every app on the list blocked until
+    /// LockedUntil, whatever else the plan says.</summary>
+    public static bool IsLocked(PlanDto? plan, DateTime? now = null) =>
+        plan?.LockedUntil is { } until && (now.HasValue ? new DateTimeOffset(now.Value) : DateTimeOffset.Now) < until;
+
     /// <summary>What the other devices - the phone, the browser - have used of
     /// this app today (or this week), in seconds, as last reported to the
     /// server. This computer's own report is left out: it's counted live. Only
@@ -169,6 +174,7 @@ public static class LimitEvaluator
         public const string TimeWindow = "time_window";
         public const string DailyLimit = "daily_limit";
         public const string WeeklyLimit = "weekly_limit";
+        public const string Locked = "locked";
     }
 
     /// <summary>Returns a BlockReason code, or null when not blocked. Every
@@ -176,6 +182,7 @@ public static class LimitEvaluator
     /// by this returning a reason string instead of a plain bool.</summary>
     public static string? IsLimitReached(string identifier, PlanDto? plan, int dailySecondsSoFar, int weeklySecondsSoFar, int resetHour, DateTime? now = null)
     {
+        if (IsLocked(plan, now)) return BlockReason.Locked;
         if (plan == null || plan.ActiveIdea == 0) return null;
         // One limit, every device: the phone's and the browser's time count too.
         dailySecondsSoFar += ElsewhereSeconds(identifier, plan, today: true, now);

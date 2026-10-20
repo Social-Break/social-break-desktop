@@ -163,6 +163,11 @@ public class PlanDto
     // one shared limit. Null from a server that predates it.
     [JsonPropertyName("shared_usage")]
     public SharedUsageDto? SharedUsage { get; set; }
+
+    // Lock now: every app on the list blocked until then, with no snooze
+    // and no "continue". Null when there's no lock.
+    [JsonPropertyName("locked_until")]
+    public DateTimeOffset? LockedUntil { get; set; }
 }
 
 public class SharedUsageDto
