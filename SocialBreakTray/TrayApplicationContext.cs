@@ -9,12 +9,12 @@ using SocialBreakTray.Ui;
 namespace SocialBreakTray;
 
 /// <summary>
-/// The tray icon, its menu, and an optional Live Tracking window
-/// (LiveTrackingForm) showing today's/this week's accrued time per app -
-/// nothing else. That window is deliberately read-only: no limits, rules,
-/// or Media List editing happen here. Every setting beyond "start with
-/// Windows," "pause briefly," and viewing live totals still lives on the
-/// website.
+/// The tray icon, its menu, an optional Live Tracking window
+/// (LiveTrackingForm) showing today's/this week's accrued time per app, and
+/// the "Add apps" window (AddAppsForm) for putting this computer's programs
+/// on the list. Adding is the only change to the list made here: removing,
+/// limits and rules - every setting beyond "start with Windows," "pause
+/// briefly" and the two windows - still live on the website.
 /// </summary>
 public class TrayApplicationContext : ApplicationContext
 {
@@ -47,6 +47,7 @@ public class TrayApplicationContext : ApplicationContext
     private DateTime? _pausedUntilUtc;
     private BlockForm? _activeBlockForm;
     private LiveTrackingForm? _liveTrackingForm;
+    private AddAppsForm? _addAppsForm;
     // The identifier of whichever tracked app is actively accruing time
     // right now (null when idle/paused/no match) - read live by
     // LiveTrackingForm via a getter delegate, not pushed to it, so it stays
@@ -172,6 +173,7 @@ public class TrayApplicationContext : ApplicationContext
 
         menu.Items.Add(T("Pause tracking (5 min)", "Παύση μέτρησης (5 λεπτά)"), null, (_, _) => PauseTracking());
         menu.Items.Add(T("Live Tracking", "Ζωντανή μέτρηση"), null, (_, _) => ShowLiveTracking());
+        menu.Items.Add(T("Add apps…", "Προσθήκη εφαρμογών…"), null, (_, _) => ShowAddApps());
         menu.Items.Add(T("Open Website", "Άνοιγμα ιστότοπου"), null, (_, _) => OpenWebsite());
         menu.Items.Add(T("About Social Break", "Σχετικά με το Social Break"), null, (_, _) => ShowAbout());
 
@@ -202,6 +204,8 @@ public class TrayApplicationContext : ApplicationContext
     private async Task InitializeAsync()
     {
         var token = TokenStore.LoadToken();
+        // Signing in now, rather than already signed in from before.
+        bool justConnected = token == null;
         if (token == null)
         {
             if (!await ShowDisclosureIfNeededAsync()) { ExitApp(); return; }
@@ -228,7 +232,15 @@ public class TrayApplicationContext : ApplicationContext
         // automatic showing via its own checkbox; opening it from the tray
         // menu or double-clicking the icon always shows it regardless of
         // that preference, since that's an explicit request.
-        if (!TokenStore.IsWelcomeHiddenOnStartup())
+        //
+        // Just connected with nothing from this computer on the list yet:
+        // the first thing to do is pick the apps, so that window comes up
+        // instead.
+        if (justConnected && _trackedApps.Count == 0)
+        {
+            ShowAddApps();
+        }
+        else if (!TokenStore.IsWelcomeHiddenOnStartup())
         {
             ShowLiveTracking();
         }
@@ -421,6 +433,34 @@ public class TrayApplicationContext : ApplicationContext
         _liveTrackingForm.FormClosed += (_, _) => _liveTrackingForm = null;
         _liveTrackingForm.Show();
         _liveTrackingForm.Activate();
+    }
+
+    /// <summary>Opens "Which apps do you want to limit?", or brings it back
+    /// to the front. Whatever it adds is picked up straight away.</summary>
+    private void ShowAddApps()
+    {
+        if (_addAppsForm is { IsDisposed: false } existing)
+        {
+            existing.Activate();
+            existing.BringToFront();
+            return;
+        }
+
+        var form = new AddAppsForm(_apiClient, _topApps.Top(), _trackedApps.Select(m => m.Url));
+        form.FormClosed += async (_, _) =>
+        {
+            _addAppsForm = null;
+            if (form.Added.Count == 0) return;
+            await SyncAsync();
+            var what = form.Added.Count == 1 ? form.Added[0] : T($"{form.Added.Count} apps", $"{form.Added.Count} εφαρμογές");
+            _trayIcon.ShowBalloonTip(5000, "Social Break",
+                T($"{what} added to your list. Your limits count them from now on.",
+                  $"{what}: στη λίστα σου. Τα όριά σου τα μετράνε από τώρα."),
+                ToolTipIcon.None);
+        };
+        _addAppsForm = form;
+        form.Show();
+        form.Activate();
     }
 
     private static void OpenWebsite()

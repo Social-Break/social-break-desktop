@@ -157,6 +157,15 @@ public class SocialBreakApiClient
         return plans is { Count: > 0 } ? plans[0] : null;
     }
 
+    /// <summary>This week's most-used programs, for the website to offer by
+    /// name - an empty list clears them (the tray switch turned off).</summary>
+    public async Task PostTopAppsAsync(IEnumerable<SocialBreakTray.Tracking.TopApp> apps, CancellationToken ct = default)
+    {
+        var payload = new { apps = apps.Select(a => new { exe = a.Exe, name = a.Name, minutes = a.Minutes }) };
+        using var response = await _http.PostAsJsonAsync("/api/desktop-top-apps/", payload, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
     /// <summary>
     /// {identifier: {"yyyy-MM-dd": minutes}} - one figure per app per logical
     /// day, which is what report_media_usage now accepts alongside the older
@@ -167,15 +176,6 @@ public class SocialBreakApiClient
     /// re-sending a day the server already has replaces it instead of adding to
     /// it and a retry can't double-count.
     /// </summary>
-    /// <summary>This week's most-used programs, for the website to offer by
-    /// name - an empty list clears them (the tray switch turned off).</summary>
-    public async Task PostTopAppsAsync(IEnumerable<SocialBreakTray.Tracking.TopApp> apps, CancellationToken ct = default)
-    {
-        var payload = new { apps = apps.Select(a => new { exe = a.Exe, name = a.Name, minutes = a.Minutes }) };
-        using var response = await _http.PostAsJsonAsync("/api/desktop-top-apps/", payload, ct);
-        response.EnsureSuccessStatusCode();
-    }
-
     public async Task<ReportUsageResponse?> ReportUsageAsync(
         Dictionary<string, Dictionary<string, int>> minutesByDay,
         Dictionary<string, Dictionary<string, int[]>>? minutesByHour = null,
@@ -194,8 +194,33 @@ public class SocialBreakApiClient
         return await response.Content.ReadFromJsonAsync<ReportUsageResponse>(cancellationToken: ct);
     }
 
-    // Deliberately no "add a media item" method here - per the design,
-    // managing the Media List (website or desktop app entries alike) only
-    // ever happens on the website, never from this app. This client only
-    // ever reads /api/media/ to know what to track, never writes to it.
+    /// <summary>
+    /// Puts one program on the list, from the "Add apps" window - the only
+    /// change to the list this app makes; removing, limits and rules stay on
+    /// the website. Null means it's on the list (new or already there);
+    /// otherwise the reason it isn't, in the server's own words when it gave
+    /// some (a free account that's full).
+    /// </summary>
+    public async Task<string?> AddAppAsync(string exe, string name, CancellationToken ct = default)
+    {
+        var payload = new { identifier = exe, name };
+        using var response = await _http.PostAsJsonAsync("/api/media/quick_add_app/", payload, ct);
+        if (response.IsSuccessStatusCode) return null;
+        try
+        {
+            var refusal = await response.Content.ReadFromJsonAsync<AddAppRefusal>(cancellationToken: ct);
+            if (!string.IsNullOrWhiteSpace(refusal?.Detail)) return refusal.Detail;
+        }
+        catch
+        {
+            // Not JSON - the plain wording below.
+        }
+        return T("Couldn't add it right now. Try again in a moment.", "Δεν προστέθηκε αυτή τη στιγμή. Δοκίμασε ξανά σε λίγο.");
+    }
+
+    private class AddAppRefusal
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("detail")]
+        public string? Detail { get; set; }
+    }
 }

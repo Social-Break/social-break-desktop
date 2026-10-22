@@ -110,7 +110,7 @@ internal class LiveTrackingForm : DarkForm
 
         _emptyLabel = new Label
         {
-            Text = T("No desktop apps on your Media List yet - add one on the website.", "Δεν υπάρχουν ακόμα εφαρμογές υπολογιστή στη λίστα σου - πρόσθεσε μία στον ιστότοπο."),
+            Text = T("No apps from this computer on your list yet. Pick some with Add apps… on the tray icon.", "Δεν υπάρχουν ακόμα εφαρμογές του υπολογιστή στη λίστα σου. Διάλεξε με την Προσθήκη εφαρμογών… στο εικονίδιο κάτω δεξιά."),
             ForeColor = Theme.TextMuted,
             AutoSize = true,
             MaximumSize = new Size(400, 0),
@@ -128,7 +128,7 @@ internal class LiveTrackingForm : DarkForm
 
         var note = new Label
         {
-            Text = T("Limits, rules, and your Media List are managed on the website.", "Τα όρια, οι κανόνες και η λίστα σου ρυθμίζονται στον ιστότοπο."),
+            Text = T("Limits and rules are set on the website.", "Τα όρια και οι κανόνες ρυθμίζονται στον ιστότοπο."),
             ForeColor = Theme.TextMuted,
             Font = new Font("Segoe UI", 8),
             AutoSize = true,
