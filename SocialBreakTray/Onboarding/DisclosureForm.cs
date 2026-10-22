@@ -50,8 +50,10 @@ public class DisclosureForm : Form
                 "extension tracks browser tabs, just for apps outside your browser.\r\n\r\n" +
                 "It reads only the name of whichever application currently has focus, to check it against " +
                 "the desktop-app entries on your Media List (managed on the website). It does not read " +
-                "keystrokes, screen contents, file contents, clipboard data, or anything else - and it " +
-                "never touches apps you haven't explicitly added.\r\n\r\n" +
+                "keystrokes, screen contents, file contents, clipboard data, or anything else.\r\n\r\n" +
+                "To suggest apps to add on the website, it also counts which programs you use most and " +
+                "sends the names of your top ten, with their minutes. You can turn that off from the tray " +
+                "icon (\"Suggest my most-used apps\").\r\n\r\n" +
                 "It stays visible as an icon in your system tray at all times, pauses automatically while " +
                 "you're away from your computer, and your login is encrypted on this device and never " +
                 "leaves it in plain text.\r\n\r\n" +
@@ -60,8 +62,10 @@ public class DisclosureForm : Form
                 "μετράει τις καρτέλες του browser, απλώς για εφαρμογές έξω από τον browser.\r\n\r\n" +
                 "Διαβάζει μόνο το όνομα της εφαρμογής που είναι μπροστά σου, για να το συγκρίνει με τις " +
                 "εφαρμογές υπολογιστή της λίστας σου (που ρυθμίζεις στον ιστότοπο). Δεν διαβάζει " +
-                "πλήκτρα, ό,τι δείχνει η οθόνη, αρχεία, το πρόχειρο ή οτιδήποτε άλλο - και δεν " +
-                "αγγίζει εφαρμογές που δεν πρόσθεσες εσύ.\r\n\r\n" +
+                "πλήκτρα, ό,τι δείχνει η οθόνη, αρχεία, το πρόχειρο ή οτιδήποτε άλλο.\r\n\r\n" +
+                "Για να σου προτείνει εφαρμογές στον ιστότοπο, μετράει επίσης ποια προγράμματα " +
+                "χρησιμοποιείς περισσότερο και στέλνει τα ονόματα των δέκα πρώτων, με τα λεπτά τους. " +
+                "Μπορείς να το κλείσεις από το εικονίδιο («Πρότεινε τις εφαρμογές που χρησιμοποιώ»).\r\n\r\n" +
                 "Φαίνεται πάντα ως εικονίδιο στη γραμμή εργασιών, σταματάει μόνο του όταν λείπεις " +
                 "από τον υπολογιστή, και η σύνδεσή σου είναι κρυπτογραφημένη σε αυτή τη συσκευή και " +
                 "δεν φεύγει ποτέ από αυτήν ως απλό κείμενο.\r\n\r\n" +

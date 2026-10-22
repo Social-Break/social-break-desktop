@@ -8,7 +8,12 @@ internal class StoredConfig
 {
     public string? Token { get; set; }
     public bool DisclosureAcknowledged { get; set; }
+    // Which wording of the notice was agreed to: a new one (2 - suggesting
+    // the most-used apps) is shown once more to everyone.
+    public int DisclosureVersion { get; set; }
     public bool HideWelcomeOnStartup { get; set; }
+    // The tray's "Suggest my most-used apps" turned off.
+    public bool SuggestAppsOff { get; set; }
 }
 
 /// <summary>
@@ -28,7 +33,22 @@ public static class TokenStore
 
     public static string? LoadToken() => Load().Token;
 
-    public static bool IsDisclosureAcknowledged() => Load().DisclosureAcknowledged;
+    public const int CurrentDisclosure = 2;
+
+    public static bool IsDisclosureAcknowledged()
+    {
+        var config = Load();
+        return config.DisclosureAcknowledged && config.DisclosureVersion >= CurrentDisclosure;
+    }
+
+    public static bool IsSuggestingApps() => !Load().SuggestAppsOff;
+
+    public static void SetSuggestingApps(bool on)
+    {
+        var config = Load();
+        config.SuggestAppsOff = !on;
+        Save(config);
+    }
 
     public static void SaveToken(string token)
     {
@@ -41,6 +61,7 @@ public static class TokenStore
     {
         var config = Load();
         config.DisclosureAcknowledged = true;
+        config.DisclosureVersion = CurrentDisclosure;
         Save(config);
     }
 

@@ -29,6 +29,10 @@ public class TrayApplicationContext : ApplicationContext
     private readonly IForegroundWindowProvider _foregroundProvider = new Win32ForegroundWindowProvider();
     private readonly IIdleTimeProvider _idleProvider = new Win32IdleTimeProvider();
     private readonly UsageAccumulator _accumulator = new(ResetHour);
+    // The week's most-used programs, for the website to offer by name.
+    private readonly TopAppsTracker _topApps = new();
+    // Read once, not every second: the setting lives in the encrypted config.
+    private bool _suggestApps = TokenStore.IsSuggestingApps();
     private UsageReporter? _usageReporter;
 
     private readonly System.Windows.Forms.Timer _heartbeatTimer;
@@ -175,6 +179,19 @@ public class TrayApplicationContext : ApplicationContext
         _startWithWindowsItem.Click += (_, _) => AutoStart.SetEnabled(_startWithWindowsItem.Checked);
         menu.Items.Add(_startWithWindowsItem);
 
+        // The most-used programs, sent so the website can offer them - off
+        // stops counting and clears what was sent.
+        var suggestItem = new ToolStripMenuItem(T("Suggest my most-used apps", "Πρότεινε τις εφαρμογές που χρησιμοποιώ")) { CheckOnClick = true, Checked = _suggestApps };
+        suggestItem.Click += async (_, _) =>
+        {
+            _suggestApps = suggestItem.Checked;
+            TokenStore.SetSuggestingApps(_suggestApps);
+            if (suggestItem.Checked) return;
+            _topApps.Clear();
+            try { await _apiClient.PostTopAppsAsync(Array.Empty<TopApp>()); } catch { }
+        };
+        menu.Items.Add(suggestItem);
+
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(T("Log Out", "Αποσύνδεση"), null, (_, _) => LogOut());
         menu.Items.Add(T("Quit", "Έξοδος"), null, (_, _) => ExitApp());
@@ -270,6 +287,16 @@ public class TrayApplicationContext : ApplicationContext
         {
             await _usageReporter.ReportAsync();
         }
+
+        // The week's most-used programs, when they've changed.
+        if (_suggestApps)
+        {
+            _topApps.Save();
+            if (_topApps.ChangedTop() is { } top)
+            {
+                try { await _apiClient.PostTopAppsAsync(top); } catch { }
+            }
+        }
     }
 
     private void HeartbeatTick()
@@ -302,6 +329,8 @@ public class TrayApplicationContext : ApplicationContext
             SetTrayStatus(T("Active", "Ενεργό"));
             return;
         }
+
+        if (_suggestApps) _topApps.Add(foreground.Value.ProcessName, foreground.Value.FullPath, HeartbeatIntervalMs / 1000);
 
         var match = _trackedApps.FirstOrDefault(m => string.Equals(m.Url, foreground.Value.ProcessName, StringComparison.OrdinalIgnoreCase));
         if (match == null)

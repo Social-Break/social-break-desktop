@@ -59,8 +59,9 @@ public class Win32ForegroundWindowProvider : IForegroundWindowProvider
             uint size = (uint)buffer.Capacity;
             if (!QueryFullProcessImageName(hProcess, 0, buffer, ref size)) return null;
 
-            var exeName = Path.GetFileName(buffer.ToString(0, (int)size)).ToLowerInvariant();
-            return string.IsNullOrEmpty(exeName) ? null : new ForegroundInfo(exeName, hwnd);
+            var fullPath = buffer.ToString(0, (int)size);
+            var exeName = Path.GetFileName(fullPath).ToLowerInvariant();
+            return string.IsNullOrEmpty(exeName) ? null : new ForegroundInfo(exeName, hwnd, fullPath);
         }
         catch
         {

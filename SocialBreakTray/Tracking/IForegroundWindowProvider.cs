@@ -1,6 +1,6 @@
 namespace SocialBreakTray.Tracking;
 
-public record struct ForegroundInfo(string ProcessName, nint WindowHandle);
+public record struct ForegroundInfo(string ProcessName, nint WindowHandle, string? FullPath = null);
 
 /// <summary>
 /// Abstraction over "what's currently the foreground window's process,"

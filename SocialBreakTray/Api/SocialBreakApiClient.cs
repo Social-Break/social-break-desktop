@@ -167,6 +167,15 @@ public class SocialBreakApiClient
     /// re-sending a day the server already has replaces it instead of adding to
     /// it and a retry can't double-count.
     /// </summary>
+    /// <summary>This week's most-used programs, for the website to offer by
+    /// name - an empty list clears them (the tray switch turned off).</summary>
+    public async Task PostTopAppsAsync(IEnumerable<SocialBreakTray.Tracking.TopApp> apps, CancellationToken ct = default)
+    {
+        var payload = new { apps = apps.Select(a => new { exe = a.Exe, name = a.Name, minutes = a.Minutes }) };
+        using var response = await _http.PostAsJsonAsync("/api/desktop-top-apps/", payload, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task<ReportUsageResponse?> ReportUsageAsync(
         Dictionary<string, Dictionary<string, int>> minutesByDay,
         Dictionary<string, Dictionary<string, int[]>>? minutesByHour = null,
