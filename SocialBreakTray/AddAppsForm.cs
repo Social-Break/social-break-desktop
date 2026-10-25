@@ -202,25 +202,7 @@ internal class AddAppsForm : DarkForm
         _search.Box.Focus();
     }
 
-    private static Bitmap? IconOf(string? path)
-    {
-        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
-        try
-        {
-            using var icon = Icon.ExtractAssociatedIcon(path);
-            if (icon == null) return null;
-            using var full = icon.ToBitmap();
-            var small = new Bitmap(IconSize, IconSize);
-            using var g = Graphics.FromImage(small);
-            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            g.DrawImage(full, 0, 0, IconSize, IconSize);
-            return small;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static Bitmap? IconOf(string? path) => AppLook.IconOf(path, IconSize);
 
     /// <summary>The rows the search leaves, in their order.</summary>
     private void ShowRows()

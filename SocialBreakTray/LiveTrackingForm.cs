@@ -38,7 +38,9 @@ namespace SocialBreakTray;
 internal class LiveTrackingForm : DarkForm
 {
     private const int ContentWidth = 460;
-    private const int ContentHeight = 480;
+    private const int HeaderHeight = 76;
+    private const int CardStep = 86;   // a card and the gap under it
+    private const int MostCardsShown = 4;
 
     private readonly UsageAccumulator _accumulator;
     private readonly Func<List<MediaItemDto>> _getTrackedApps;
@@ -49,6 +51,10 @@ internal class LiveTrackingForm : DarkForm
     private readonly FlowLayoutPanel _cardList;
     private readonly Dictionary<string, TrackedAppCard> _cards = new();
     private readonly Label _emptyLabel;
+    private readonly Panel _divider;
+    private readonly Label _note;
+    private readonly DarkCheckBox _hideCheckbox;
+    private int _laidOutFor = -1;
     private readonly System.Windows.Forms.Timer _refreshTimer;
 
     public LiveTrackingForm(UsageAccumulator accumulator, Func<List<MediaItemDto>> getTrackedApps,
@@ -61,38 +67,33 @@ internal class LiveTrackingForm : DarkForm
         _getPlan = getPlan;
         _resetHour = resetHour;
 
-        SetContentSize(ContentWidth, ContentHeight);
-
-        var header = new Panel { Location = new Point(0, 0), Size = new Size(ContentWidth, 76) };
+        var header = new Panel { Location = new Point(0, 0), Size = new Size(ContentWidth, HeaderHeight) };
         header.Paint += (_, e) =>
         {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             // Same brush and same width as the caption bar directly above,
-            // so the horizontal gradient continues across the seam.
+            // so the horizontal gradient continues across the seam. No logo
+            // here: the caption bar already carries it, and a second, bigger
+            // one right under it only repeated it.
             using var gradient = Theme.CreateHeaderBrush(header.ClientRectangle);
             e.Graphics.FillRectangle(gradient, header.ClientRectangle);
-
-            // 40px has no matching frame in app.ico, so this resamples the
-            // 256px one rather than stretching the 32px one (see Theme).
-            Theme.DrawAppIcon(e.Graphics, new Rectangle(20, 18, 40, 40));
         };
 
         var title = new Label
         {
-            Text = T("Live Tracking", "Ζωντανή μέτρηση"),
+            Text = T("Today", "Σήμερα"),
             ForeColor = Theme.TextPrimary,
             Font = new Font("Segoe UI", 14, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(72, 16),
+            Location = new Point(18, 14),
             BackColor = Color.Transparent,
         };
         var subtitle = new Label
         {
-            Text = T("Desktop apps counted against your Media List", "Εφαρμογές υπολογιστή από τη λίστα σου"),
+            Text = T("Your apps on this computer, against their limits.", "Οι εφαρμογές σου σε αυτόν τον υπολογιστή, απέναντι στα όριά τους."),
             ForeColor = Theme.TextSecondary,
             Font = new Font("Segoe UI", 8.5f),
             AutoSize = true,
-            Location = new Point(72, 44),
+            Location = new Point(20, 44),
             BackColor = Color.Transparent,
         };
         header.Controls.Add(title);
@@ -103,8 +104,8 @@ internal class LiveTrackingForm : DarkForm
             FlowDirection = FlowDirection.TopDown,
             WrapContents = false,
             AutoScroll = true,
-            Location = new Point(20, 92),
-            Size = new Size(420, 300),
+            Location = new Point(20, HeaderHeight + 16),
+            Size = new Size(420, CardStep),
             BackColor = Theme.Bg,
         };
 
@@ -119,21 +120,19 @@ internal class LiveTrackingForm : DarkForm
 
         // A hairline above the footer, separating live data from the
         // static explanatory text under it.
-        var divider = new Panel
+        _divider = new Panel
         {
-            Location = new Point(20, 396),
             Size = new Size(420, 1),
             BackColor = Theme.Border,
         };
 
-        var note = new Label
+        _note = new Label
         {
             Text = T("Limits and rules are set on the website.", "Τα όρια και οι κανόνες ρυθμίζονται στον ιστότοπο."),
             ForeColor = Theme.TextMuted,
             Font = new Font("Segoe UI", 8),
             AutoSize = true,
             MaximumSize = new Size(420, 0),
-            Location = new Point(20, 410),
         };
 
         // Only affects whether this window auto-opens on launch (see
@@ -143,16 +142,15 @@ internal class LiveTrackingForm : DarkForm
         // DarkCheckBox rather than a stock CheckBox, whose system-drawn
         // glyph stays a bright light-theme square whatever colors it's
         // given (see DarkCheckBox). Explicitly sized, since it owner-draws.
-        var hideCheckbox = new DarkCheckBox
+        _hideCheckbox = new DarkCheckBox
         {
             Text = T("Don't show this automatically on startup", "Να μην εμφανίζεται αυτόματα στην εκκίνηση"),
-            Location = new Point(20, 434),
             Size = new Size(320, 20),
             Checked = TokenStore.IsWelcomeHiddenOnStartup(),
         };
-        hideCheckbox.CheckedChanged += (_, _) => TokenStore.SetHideWelcomeOnStartup(hideCheckbox.Checked);
+        _hideCheckbox.CheckedChanged += (_, _) => TokenStore.SetHideWelcomeOnStartup(_hideCheckbox.Checked);
 
-        Content.Controls.AddRange(new Control[] { header, _cardList, _emptyLabel, divider, note, hideCheckbox });
+        Content.Controls.AddRange(new Control[] { header, _cardList, _emptyLabel, _divider, _note, _hideCheckbox });
 
         _refreshTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         _refreshTimer.Tick += (_, _) => RefreshCards();
@@ -168,6 +166,7 @@ internal class LiveTrackingForm : DarkForm
         var currentUrl = _getCurrentlyTrackedUrl();
         var plan = _getPlan();
 
+        LayOut(trackedApps.Count);
         _emptyLabel.Visible = trackedApps.Count == 0;
         if (trackedApps.Count == 0 && !_cardList.Controls.Contains(_emptyLabel))
         {
@@ -180,7 +179,7 @@ internal class LiveTrackingForm : DarkForm
             seenUrls.Add(app.Url);
             if (!_cards.TryGetValue(app.Url, out var card))
             {
-                card = new TrackedAppCard(app.Name);
+                card = new TrackedAppCard(app.Url, app.Name);
                 _cards[app.Url] = card;
                 _cardList.Controls.Add(card);
             }
@@ -203,6 +202,32 @@ internal class LiveTrackingForm : DarkForm
         }
     }
 
+    /// <summary>As tall as its apps, up to four, then the list scrolls -
+    /// rather than a fixed window that was mostly empty space for one app.</summary>
+    private void LayOut(int count)
+    {
+        if (count == _laidOutFor) return;
+        _laidOutFor = count;
+
+        int listHeight = count == 0 ? 56 : Math.Min(count, MostCardsShown) * CardStep - 10;
+        _cardList.Height = listHeight;
+        int y = _cardList.Bottom + 16;
+        _divider.Location = new Point(20, y);
+        _note.Location = new Point(20, y + 14);
+        _hideCheckbox.Location = new Point(20, y + 38);
+        SetContentSize(ContentWidth, y + 38 + 20 + 18);
+    }
+
+    /// <summary>Minutes, the way the phone and the website write them: 12m,
+    /// 1h, 1h 5m. Seconds ticking by only made the numbers busy.</summary>
+    private static string Short(int seconds)
+    {
+        int h = seconds / 3600;
+        int m = (seconds % 3600) / 60;
+        if (h == 0) return $"{m}{M}";
+        return m == 0 ? $"{h}{H}" : $"{h}{H} {m}{M}";
+    }
+
     /// <summary>One tracked app's row - an avatar badge, name, a LIVE badge
     /// when active, and either a progress bar (when a real daily limit
     /// applies) or plain totals otherwise. Kept alive and updated in place
@@ -211,13 +236,15 @@ internal class LiveTrackingForm : DarkForm
     /// every second.</summary>
     private class TrackedAppCard : Panel
     {
-        private readonly string _appName;
+        private const int IconSize = 32;
+        private string _appName;
+        private Bitmap? _icon;
         private readonly Label _nameLabel;
         private readonly Label _liveLabel;
         private readonly Label _timeLabel;
         private readonly ProgressTrack _progressTrack;
 
-        public TrackedAppCard(string appName)
+        public TrackedAppCard(string exe, string appName)
         {
             _appName = appName;
             Size = new Size(420, 76);
@@ -234,6 +261,11 @@ internal class LiveTrackingForm : DarkForm
             avatar.Paint += (_, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                if (_icon != null)
+                {
+                    e.Graphics.DrawImage(_icon, (40 - IconSize) / 2, (40 - IconSize) / 2, IconSize, IconSize);
+                    return;
+                }
                 using var bg = new SolidBrush(Theme.Avatar);
                 e.Graphics.FillEllipse(bg, 0, 0, 39, 39);
                 var letter = _appName.Length > 0 ? _appName[..1].ToUpperInvariant() : "?";
@@ -280,6 +312,24 @@ internal class LiveTrackingForm : DarkForm
             };
 
             Controls.AddRange(new Control[] { avatar, _nameLabel, _liveLabel, _timeLabel, _progressTrack });
+
+            // The real name and icon, once found - the list may only know the
+            // program as "discord.exe".
+            Task.Run(() => AppLook.For(exe, IconSize)).ContinueWith(found =>
+            {
+                if (IsDisposed || !IsHandleCreated) return;
+                var (name, icon) = found.Result;
+                BeginInvoke(() =>
+                {
+                    if (!string.IsNullOrWhiteSpace(name) && appName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _appName = name;
+                        _nameLabel.Text = name;
+                    }
+                    _icon = icon;
+                    avatar.Invalidate();
+                });
+            }, TaskContinuationOptions.OnlyOnRanToCompletion);
         }
 
         public void UpdateData(int dailySeconds, int weeklySeconds, int dailyLimitSeconds, bool isLive)
@@ -289,15 +339,15 @@ internal class LiveTrackingForm : DarkForm
 
             if (dailyLimitSeconds > 0)
             {
-                _timeLabel.Text = T($"{TrayApplicationContext.FormatTime(dailySeconds)} of {TrayApplicationContext.FormatTime(dailyLimitSeconds)} today  ·  {TrayApplicationContext.FormatTime(weeklySeconds)} this week",
-                    $"{TrayApplicationContext.FormatTime(dailySeconds)} από {TrayApplicationContext.FormatTime(dailyLimitSeconds)} σήμερα  ·  {TrayApplicationContext.FormatTime(weeklySeconds)} αυτή την εβδομάδα");
+                _timeLabel.Text = T($"{Short(dailySeconds)} of {Short(dailyLimitSeconds)} today  ·  {Short(weeklySeconds)} this week",
+                    $"{Short(dailySeconds)} από {Short(dailyLimitSeconds)} σήμερα  ·  {Short(weeklySeconds)} αυτή την εβδομάδα");
                 _progressTrack.Percent = Math.Min(1.0, (double)dailySeconds / dailyLimitSeconds);
                 _progressTrack.Visible = true;
             }
             else
             {
-                _timeLabel.Text = T($"{TrayApplicationContext.FormatTime(dailySeconds)} today  ·  {TrayApplicationContext.FormatTime(weeklySeconds)} this week",
-                    $"{TrayApplicationContext.FormatTime(dailySeconds)} σήμερα  ·  {TrayApplicationContext.FormatTime(weeklySeconds)} αυτή την εβδομάδα");
+                _timeLabel.Text = T($"{Short(dailySeconds)} today  ·  {Short(weeklySeconds)} this week",
+                    $"{Short(dailySeconds)} σήμερα  ·  {Short(weeklySeconds)} αυτή την εβδομάδα");
                 _progressTrack.Visible = false;
             }
         }

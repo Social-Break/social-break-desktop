@@ -2,7 +2,6 @@ using static SocialBreakTray.Tr;
 using SocialBreakTray.Api;
 using SocialBreakTray.Auth;
 using SocialBreakTray.Enforcement;
-using SocialBreakTray.Onboarding;
 using SocialBreakTray.Tracking;
 using SocialBreakTray.Ui;
 
@@ -208,7 +207,6 @@ public class TrayApplicationContext : ApplicationContext
         bool justConnected = token == null;
         if (token == null)
         {
-            if (!await ShowDisclosureIfNeededAsync()) { ExitApp(); return; }
             if (!ShowLoginAndStoreToken()) { ExitApp(); return; }
             token = TokenStore.LoadToken();
         }
@@ -254,19 +252,10 @@ public class TrayApplicationContext : ApplicationContext
         about.ShowDialog();
     }
 
-    private Task<bool> ShowDisclosureIfNeededAsync()
-    {
-        if (TokenStore.IsDisclosureAcknowledged()) return Task.FromResult(true);
-
-        using var disclosure = new DisclosureForm();
-        if (disclosure.ShowDialog() != DialogResult.OK) return Task.FromResult(false);
-        TokenStore.MarkDisclosureAcknowledged();
-        return Task.FromResult(true);
-    }
-
     private bool ShowLoginAndStoreToken()
     {
-        using var login = new LoginForm(_apiClient);
+        // The welcome comes first on a first run (LoginForm.BuildWelcome).
+        using var login = new LoginForm(_apiClient, showWelcome: !TokenStore.IsDisclosureAcknowledged());
         if (login.ShowDialog() != DialogResult.OK || login.AcquiredToken == null) return false;
         TokenStore.SaveToken(login.AcquiredToken);
         return true;

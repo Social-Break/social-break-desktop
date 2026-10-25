@@ -1,5 +1,6 @@
 using static SocialBreakTray.Tr;
 using System.Diagnostics;
+using System.Drawing.Drawing2D;
 
 using SocialBreakTray.Api;
 using SocialBreakTray.Ui;
@@ -28,10 +29,17 @@ namespace SocialBreakTray.Auth;
 /// short-lived pre-login dialog didn't need the custom chrome - but this is the
 /// very first window anyone sees, and it looked like a different application to
 /// the one it opens. internal, like its siblings, because DarkForm is.
+///
+/// On a first run it opens on a short welcome - what the app does and doesn't
+/// do - before anything is asked for. That used to be a separate, plainer
+/// window of five paragraphs; it is the same promise in three lines here, with
+/// the full account a link away on the website's privacy page.
 /// </summary>
 internal class LoginForm : DarkForm
 {
-    private const int Pad = 30;
+    // The fields used to run within 30px of the window's edge, which read as
+    // a card squeezed into its frame.
+    private const int Pad = 44;
     private const int FieldWidth = 320;
     // 34 was the height of the text and nothing else. These are the first
     // things anyone sees of the app, and they read as cramped.
@@ -49,10 +57,12 @@ internal class LoginForm : DarkForm
     private readonly RoundedButton _loginButton = new();
     private bool _codeMode;
     private CancellationTokenSource? _waiting;
+    private Panel? _welcome;
+    private RoundedButton? _continueButton;
 
     public string? AcquiredToken { get; private set; }
 
-    public LoginForm(SocialBreakApiClient apiClient) : base("Social Break", showMinimize: false)
+    public LoginForm(SocialBreakApiClient apiClient, bool showWelcome = false) : base("Social Break", showMinimize: false)
     {
         _apiClient = apiClient;
         // Tall enough for the status line's three wrapped lines - the
@@ -141,8 +151,12 @@ internal class LoginForm : DarkForm
         // and telling someone to go and find a page is only half an answer
         // when the app can just open it. This takes the space the password
         // field leaves behind, so it costs no height at all.
-        var helpText = T("Codes are made on the website. Open the page that makes one", "Οι κωδικοί είναι στον ιστότοπο. Άνοιξε τη σελίδα");
-        var helpLink = T("Open the page that makes one", "Άνοιξε τη σελίδα");
+        // Where the code is, step by step, in the website's own words - the
+        // address as text, since this is the way in for when a browser can't
+        // be opened from here.
+        var helpText = T("On any device, open social-break.com/extension, press Get a connect code, and type it here.",
+            "Από οποιαδήποτε συσκευή, άνοιξε το social-break.com/extension, πάτα «Πάρε κωδικό σύνδεσης» και γράψε τον εδώ.");
+        var helpLink = "social-break.com/extension";
         _codeHelp.Text = helpText;
         _codeHelp.LinkArea = new LinkArea(helpText.IndexOf(helpLink, StringComparison.Ordinal), helpLink.Length);
         _codeHelp.ForeColor = Theme.TextSecondary;
@@ -154,14 +168,15 @@ internal class LoginForm : DarkForm
         _codeHelp.TextAlign = ContentAlignment.MiddleCenter;
         _codeHelp.Font = new Font(Theme.UiFont.FontFamily, 8.5f);
         _codeHelp.Location = new Point(Pad, secondRowTop);
-        _codeHelp.Size = new Size(FieldWidth, FieldHeight);
+        _codeHelp.Size = new Size(FieldWidth, 54);
         _codeHelp.Cursor = Cursors.Hand;
         _codeHelp.Visible = false;
         _codeHelp.LinkClicked += (_, _) =>
         {
+            try { Clipboard.SetText(SocialBreakApiClient.ConnectCodePageUrl); } catch { /* the address is on screen anyway */ }
             if (!TryOpenUrl(SocialBreakApiClient.ConnectCodePageUrl))
             {
-                SetStatus(T("Couldn't open your browser. Go to social-break.com and open Trackers.", "Δεν άνοιξε ο browser. Πήγαινε στο social-break.com και άνοιξε τους Μετρητές."), isError: true);
+                SetStatus(T("Address copied. Open it in a browser on any device.", "Η διεύθυνση αντιγράφηκε. Άνοιξέ τη σε browser σε οποιαδήποτε συσκευή."), isError: false);
             }
         };
 
@@ -211,6 +226,127 @@ internal class LoginForm : DarkForm
         });
         AcceptButton = _loginButton;
         SetCodeMode(false);
+
+        if (showWelcome)
+        {
+            _welcome = BuildWelcome(FieldWidth + Pad * 2, 532);
+            Content.Controls.Add(_welcome);
+            _welcome.BringToFront();
+            AcceptButton = _continueButton;
+        }
+    }
+
+    /// <summary>What the app does, before anything is asked for: a program
+    /// that watches which window is in front looks like spyware unless it
+    /// says so first. Closing the window here, like closing it at sign-in,
+    /// ends the app - Continue is the only way on.</summary>
+    private Panel BuildWelcome(int width, int height)
+    {
+        var panel = new Panel { Location = new Point(0, 0), Size = new Size(width, height), BackColor = Theme.Bg };
+        int y = 26;
+
+        var icon = new Panel { Location = new Point((width - 48) / 2, y), Size = new Size(48, 48), BackColor = Color.Transparent };
+        icon.Paint += (_, e) => Theme.DrawAppIcon(e.Graphics, new Rectangle(0, 0, 48, 48));
+        y += 48 + 16;
+
+        var heading = new Label
+        {
+            Text = T("Welcome to Social Break", "Καλώς ήρθες στο Social Break"),
+            ForeColor = Theme.TextPrimary,
+            Font = new Font(Theme.UiFont.FontFamily, 14f, FontStyle.Regular),
+            AutoSize = false,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Location = new Point(Pad, y),
+            Size = new Size(FieldWidth, 28),
+        };
+        panel.Controls.AddRange(new Control[] { icon, heading });
+        y += 28 + 24;
+
+        // Segoe MDL2 Assets glyphs: a clock, a shield, pause.
+        var rows = new (string Glyph, string Title, string Detail)[]
+        {
+            ("\uE823", T("Counts time in the apps on your list", "Μετράει τον χρόνο στις εφαρμογές της λίστας σου"),
+                T("The same limits as on your phone and in your browser.", "Με τα ίδια όρια όπως στο κινητό και στον browser.")),
+            ("\uEA18", T("Sees only which app is in front", "Βλέπει μόνο ποια εφαρμογή είναι μπροστά"),
+                T("Never your screen, what you type or your files.", "Ποτέ την οθόνη σου, ό,τι γράφεις ή τα αρχεία σου.")),
+            ("\uE769", T("Always in your tray", "Πάντα στο εικονίδιο κάτω δεξιά"),
+                T("Pause it, log out or quit any time.", "Σταμάτησέ το, αποσυνδέσου ή κλείσ' το όποτε θες.")),
+        };
+        foreach (var (glyph, title, detail) in rows)
+        {
+            var badge = new Panel { Location = new Point(Pad, y), Size = new Size(36, 36), BackColor = Color.Transparent };
+            badge.Paint += (_, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using var bg = new SolidBrush(Theme.Card);
+                e.Graphics.FillEllipse(bg, 0, 0, 35, 35);
+                using var glyphFont = new Font("Segoe MDL2 Assets", 12f);
+                TextRenderer.DrawText(e.Graphics, glyph, glyphFont, new Rectangle(0, 0, 36, 36), Theme.AccentGreen,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            };
+            var titleLabel = new Label
+            {
+                Text = title,
+                ForeColor = Theme.TextPrimary,
+                Font = new Font(Theme.UiFont.FontFamily, 9.5f, FontStyle.Bold),
+                AutoSize = false,
+                Location = new Point(Pad + 48, y - 1),
+                Size = new Size(FieldWidth - 48, 20),
+            };
+            var detailLabel = new Label
+            {
+                Text = detail,
+                ForeColor = Theme.TextSecondary,
+                AutoSize = false,
+                Location = new Point(Pad + 48, y + 19),
+                Size = new Size(FieldWidth - 48, 34),
+            };
+            panel.Controls.AddRange(new Control[] { badge, titleLabel, detailLabel });
+            y += 62;
+        }
+        y += 6;
+
+        var linkText = T("What leaves your computer", "Τι φεύγει από τον υπολογιστή σου");
+        var moreText = T("It also suggests your most-used apps for your list - you can turn that off. ",
+            "Σου προτείνει επίσης τις εφαρμογές που χρησιμοποιείς περισσότερο - μπορείς να το κλείσεις. ") + linkText + " →";
+        var more = new LinkLabel
+        {
+            Text = moreText,
+            LinkArea = new LinkArea(moreText.IndexOf(linkText, StringComparison.Ordinal), linkText.Length + 2),
+            ForeColor = Theme.TextMuted,
+            LinkColor = Theme.AccentGreen,
+            ActiveLinkColor = Theme.TextPrimary,
+            VisitedLinkColor = Theme.AccentGreen,
+            LinkBehavior = LinkBehavior.HoverUnderline,
+            Font = new Font(Theme.UiFont.FontFamily, 8.5f),
+            AutoSize = false,
+            TextAlign = ContentAlignment.TopCenter,
+            Location = new Point(Pad, y),
+            Size = new Size(FieldWidth, 54),
+        };
+        more.LinkClicked += (_, _) => TryOpenUrl(SocialBreakApiClient.SiteUrl + "/privacy/");
+        y += 54 + 14;
+
+        _continueButton = new RoundedButton
+        {
+            Text = T("Continue", "Συνέχεια"),
+            Location = new Point(Pad, y),
+            Size = new Size(FieldWidth, 40),
+            BackColor = Theme.ButtonGreen,
+            ForeColor = Color.White,
+            HoverColor = Theme.ButtonGreenHover,
+            Font = new Font(Theme.UiFont.FontFamily, 10f, FontStyle.Bold),
+            Cursor = Cursors.Hand,
+        };
+        _continueButton.Click += (_, _) =>
+        {
+            TokenStore.MarkDisclosureAcknowledged();
+            panel.Visible = false;
+            AcceptButton = _loginButton;
+            ActiveControl = _browserButton;
+        };
+        panel.Controls.AddRange(new Control[] { more, _continueButton });
+        return panel;
     }
 
     /// <summary>Swaps which of the two ways in is on screen. They share the
@@ -245,7 +381,7 @@ internal class LoginForm : DarkForm
         // window opened showing an empty rectangle above a labelled Password.
         // Parking focus on the button keeps both captions readable, and
         // AcceptButton already means Enter submits from anywhere.
-        ActiveControl = _browserButton;
+        ActiveControl = _welcome is { Visible: true } ? _continueButton : _browserButton;
     }
 
     /// <summary>UseShellExecute is what hands a URL to the default browser;

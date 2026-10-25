@@ -17,7 +17,7 @@
          1.0.0.0 for every build, whatever version it actually shipped as,
          which makes "which build is this?" unanswerable from a user's
          machine. -->
-    <Version>1.0.15</Version>
+    <Version>1.0.16</Version>
   </PropertyGroup>
 
   <!-- A release build names no folder on the machine it was built on: no

@@ -38,11 +38,10 @@ internal class AboutForm : DarkForm
           "στη λίστα σου στον ιστότοπο - όπως η επέκταση του browser μετράει τις " +
           "καρτέλες, απλώς για εφαρμογές έξω από τον browser."),
 
-        T("Your Media List, Plan, limits, and usage are all managed on the website, " +
-          "same as always - this app's Live Tracking window just shows what's " +
-          "currently being counted.",
-          "Η λίστα σου, το πλάνο, τα όρια και η χρήση ρυθμίζονται όλα στον ιστότοπο, " +
-          "όπως πάντα - το παράθυρο Ζωντανή μέτρηση δείχνει απλώς τι μετριέται τώρα."),
+        T("Your list, limits and usage are all managed on the website - this " +
+          "app's Live Tracking window just shows what's being counted right now.",
+          "Η λίστα σου, τα όρια και η χρήση ρυθμίζονται όλα στον ιστότοπο - το " +
+          "παράθυρο Ζωντανή μέτρηση δείχνει απλώς τι μετριέται τώρα."),
 
         T("Look for the Social Break icon in your system tray (you may need to click " +
           "the small arrow to show hidden icons) to pause tracking, check status, " +
@@ -102,7 +101,7 @@ internal class AboutForm : DarkForm
                 // Width-only cap (0 height = unbounded): a fixed pixel height
                 // silently clips wrapped text on any machine whose rendered
                 // font needs more vertical space than guessed here. Same
-                // reason DisclosureForm does it.
+                // reason the sign-in window's welcome does it.
                 MaximumSize = new Size(BodyWidth, 0),
                 Location = new Point(Pad, y),
                 BackColor = Color.Transparent,
