@@ -274,9 +274,14 @@ internal class LoginForm : DarkForm
             ("\uE823", T("Tracks your desktop apps", "Μετράει τις εφαρμογές του υπολογιστή σου")),
             ("\uEA18", T("Your data is safe", "Τα δεδομένα σου είναι ασφαλή")),
         };
+        // Centred as one block, by its longest line - each row starting at the
+        // margin left the pair sitting off to the left of everything else.
+        var titleFont = new Font(Theme.UiFont.FontFamily, 10f, FontStyle.Bold);
+        int textWidth = rows.Max(r => TextRenderer.MeasureText(r.Title, titleFont).Width) + 4;
+        int left = Math.Max(Pad, (width - (36 + 14 + textWidth)) / 2);
         foreach (var (glyph, title) in rows)
         {
-            var badge = new Panel { Location = new Point(Pad, y), Size = new Size(36, 36), BackColor = Color.Transparent };
+            var badge = new Panel { Location = new Point(left, y), Size = new Size(36, 36), BackColor = Color.Transparent };
             badge.Paint += (_, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -290,11 +295,11 @@ internal class LoginForm : DarkForm
             {
                 Text = title,
                 ForeColor = Theme.TextPrimary,
-                Font = new Font(Theme.UiFont.FontFamily, 10f, FontStyle.Bold),
+                Font = titleFont,
                 AutoSize = false,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Location = new Point(Pad + 50, y),
-                Size = new Size(FieldWidth - 50, 36),
+                Location = new Point(left + 50, y),
+                Size = new Size(textWidth, 36),
             };
             panel.Controls.AddRange(new Control[] { badge, titleLabel });
             y += 50;
