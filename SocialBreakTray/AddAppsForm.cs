@@ -20,7 +20,13 @@ namespace SocialBreakTray;
 internal class AddAppsForm : DarkForm
 {
     private const int ContentWidth = 440;
-    private const int ContentHeight = 560;
+    // From the top down: the list, a line for its status, the buttons, and a
+    // margin under them. The height was a fixed 560, which put the status
+    // line and the buttons on top of each other and the buttons on the edge.
+    private const int ListTop = 128;
+    private const int StatusTop = ListTop + RowHeight * 8 + 8;
+    private const int ButtonsTop = StatusTop + 40;
+    private const int ContentHeight = ButtonsTop + 40 + 24;
     private const int Pad = 20;
     private const int RowHeight = 42;
     private const int IconSize = 24;
@@ -96,7 +102,7 @@ internal class AddAppsForm : DarkForm
         _search.Box.TextChanged += (_, _) => ShowRows();
         _search.Enabled = false;
 
-        _list.Location = new Point(Pad, 128);
+        _list.Location = new Point(Pad, ListTop);
         _list.Size = new Size(ContentWidth - Pad * 2, RowHeight * 8);
         _list.BorderStyle = BorderStyle.None;
         _list.BackColor = Theme.Bg;
@@ -123,12 +129,12 @@ internal class AddAppsForm : DarkForm
 
         _status.ForeColor = Theme.TextMuted;
         _status.AutoSize = false;
-        _status.Location = new Point(Pad, 128 + RowHeight * 8 + 12);
-        _status.Size = new Size(ContentWidth - Pad * 2, 36);
+        _status.Location = new Point(Pad, StatusTop);
+        _status.Size = new Size(ContentWidth - Pad * 2, 34);
         _status.Text = T("Looking for your apps…", "Ψάχνω τις εφαρμογές σου…");
 
-        int buttonsTop = ContentHeight - Pad - 40;
-        _laterButton.Text = T("Not now", "Όχι τώρα");
+        int buttonsTop = ButtonsTop;
+        _laterButton.Text = T("Close", "Κλείσιμο");
         _laterButton.Location = new Point(Pad, buttonsTop);
         _laterButton.Size = new Size(130, 40);
         _laterButton.BackColor = Theme.Card;
