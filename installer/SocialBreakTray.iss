@@ -6,7 +6,7 @@
 ; so end users don't need the .NET runtime installed separately.
 
 #define MyAppName "Social Break"
-#define MyAppVersion "1.0.14"
+#define MyAppVersion "1.0.15"
 #define MyAppPublisher "Social Break"
 #define MyAppExeName "SocialBreakTray.exe"
 #define MyAppSourceExe "..\SocialBreakTray\bin\Release\net8.0-windows\win-x64\publish\SocialBreakTray.exe"
@@ -28,7 +28,10 @@ SetupIconFile=..\SocialBreakTray\app.ico
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-InfoBeforeFile=smartscreen_notice.txt
+; Reinstalling, or installing over an older version, goes straight through:
+; the folder is ours, so "it already exists - install anyway?" only
+; worried people who had just uninstalled (and found it still there).
+DirExistsWarning=no
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]
@@ -77,6 +80,9 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: no
 ; would silently suppress the first-run "what this app does" dialog on a
 ; fresh reinstall, making it look like that dialog had been removed.
 Type: filesandordirs; Name: "{userappdata}\SocialBreak"
+; And the program folder itself, with anything the app wrote into it, so
+; an uninstall leaves nothing behind for the next install to trip on.
+Type: filesandordirs; Name: "{app}"
 
 [Code]
 // Warns on leaving the Tasks page if "autostart" was deselected - the app
