@@ -441,11 +441,10 @@ public class TrayApplicationContext : ApplicationContext
             _addAppsForm = null;
             if (form.Added.Count == 0) return;
             await SyncAsync();
-            var what = form.Added.Count == 1 ? form.Added[0] : T($"{form.Added.Count} apps", $"{form.Added.Count} εφαρμογές");
-            _trayIcon.ShowBalloonTip(5000, "Social Break",
-                T($"{what} added to your list. Your limits count them from now on.",
-                  $"{what}: στη λίστα σου. Τα όριά σου τα μετράνε από τώρα."),
-                ToolTipIcon.None);
+            var message = form.Added.Count == 1
+                ? T($"{form.Added[0]} is on your list now.", $"{form.Added[0]}: τώρα στη λίστα σου.")
+                : T($"{form.Added.Count} apps are on your list now.", $"{form.Added.Count} εφαρμογές είναι τώρα στη λίστα σου.");
+            _trayIcon.ShowBalloonTip(5000, "Social Break", message, ToolTipIcon.None);
         };
         _addAppsForm = form;
         form.Show();

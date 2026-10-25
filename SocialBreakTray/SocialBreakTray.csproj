@@ -8,6 +8,12 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <AssemblyName>SocialBreakTray</AssemblyName>
+    <!-- The name Windows shows for the program - on its notifications, in
+         Task Manager and in the file's details. Left out, it was the file
+         name, "SocialBreakTray". -->
+    <AssemblyTitle>Social Break</AssemblyTitle>
+    <Product>Social Break</Product>
+    <Company>Social Break</Company>
     <RootNamespace>SocialBreakTray</RootNamespace>
     <!-- No console window behind the tray icon - this is a background app,
          not a CLI tool. -->
