@@ -52,13 +52,14 @@ internal class LiveTrackingForm : DarkForm
     private readonly Dictionary<string, TrackedAppCard> _cards = new();
     private readonly Label _emptyLabel;
     private readonly Panel _divider;
-    private readonly Label _note;
+    private readonly RoundedButton _addApps;
     private readonly DarkCheckBox _hideCheckbox;
     private int _laidOutFor = -1;
+    private int _cardWidth = 420;
     private readonly System.Windows.Forms.Timer _refreshTimer;
 
     public LiveTrackingForm(UsageAccumulator accumulator, Func<List<MediaItemDto>> getTrackedApps,
-        Func<string?> getCurrentlyTrackedUrl, Func<PlanDto?> getPlan, int resetHour)
+        Func<string?> getCurrentlyTrackedUrl, Func<PlanDto?> getPlan, int resetHour, Action showAddApps)
         : base(T("Social Break - Live Tracking", "Social Break - Ζωντανή μέτρηση"), showMinimize: true)
     {
         _accumulator = accumulator;
@@ -103,7 +104,7 @@ internal class LiveTrackingForm : DarkForm
         {
             FlowDirection = FlowDirection.TopDown,
             WrapContents = false,
-            AutoScroll = true,
+            AutoScroll = false,
             Location = new Point(20, HeaderHeight + 16),
             Size = new Size(420, CardStep),
             BackColor = Theme.Bg,
@@ -126,14 +127,20 @@ internal class LiveTrackingForm : DarkForm
             BackColor = Theme.Border,
         };
 
-        _note = new Label
+        // Where apps get added - it used to be only on the tray icon's menu,
+        // so from here there was no sign it existed at all.
+        _addApps = new RoundedButton
         {
-            Text = T("Limits and rules are set on the website.", "Τα όρια και οι κανόνες ρυθμίζονται στον ιστότοπο."),
-            ForeColor = Theme.TextMuted,
-            Font = new Font("Segoe UI", 8),
-            AutoSize = true,
-            MaximumSize = new Size(420, 0),
+            Text = T("+  Add apps", "+  Προσθήκη εφαρμογών"),
+            Size = new Size(170, 34),
+            BackColor = Theme.Card,
+            ForeColor = Theme.TextPrimary,
+            OutlineColor = Theme.Border,
+            HoverColor = Theme.MenuHover,
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Cursor = Cursors.Hand,
         };
+        _addApps.Click += (_, _) => showAddApps();
 
         // Only affects whether this window auto-opens on launch (see
         // TrayApplicationContext.InitializeAsync) - opening it from the
@@ -150,7 +157,7 @@ internal class LiveTrackingForm : DarkForm
         };
         _hideCheckbox.CheckedChanged += (_, _) => TokenStore.SetHideWelcomeOnStartup(_hideCheckbox.Checked);
 
-        Content.Controls.AddRange(new Control[] { header, _cardList, _emptyLabel, _divider, _note, _hideCheckbox });
+        Content.Controls.AddRange(new Control[] { header, _cardList, _emptyLabel, _divider, _addApps, _hideCheckbox });
 
         _refreshTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         _refreshTimer.Tick += (_, _) => RefreshCards();
@@ -180,6 +187,7 @@ internal class LiveTrackingForm : DarkForm
             if (!_cards.TryGetValue(app.Url, out var card))
             {
                 card = new TrackedAppCard(app.Url, app.Name);
+                card.SetWidth(_cardWidth);
                 _cards[app.Url] = card;
                 _cardList.Controls.Add(card);
             }
@@ -209,13 +217,26 @@ internal class LiveTrackingForm : DarkForm
         if (count == _laidOutFor) return;
         _laidOutFor = count;
 
-        int listHeight = count == 0 ? 56 : Math.Min(count, MostCardsShown) * CardStep - 10;
+        // Exactly as tall as its cards, so Windows never adds scrollbars to a
+        // list that fits; past four it scrolls, up and down only.
+        bool scrolls = count > MostCardsShown;
+        _cardList.AutoScroll = scrolls;
+        if (scrolls)
+        {
+            _cardList.HorizontalScroll.Maximum = 0;
+            _cardList.HorizontalScroll.Visible = false;
+        }
+        int cardWidth = scrolls ? 420 - SystemInformation.VerticalScrollBarWidth - 4 : 420;
+        foreach (var card in _cards.Values) card.SetWidth(cardWidth);
+        _cardWidth = cardWidth;
+
+        int listHeight = count == 0 ? 56 : Math.Min(count, MostCardsShown) * CardStep;
         _cardList.Height = listHeight;
-        int y = _cardList.Bottom + 16;
+        int y = _cardList.Bottom + 6;
         _divider.Location = new Point(20, y);
-        _note.Location = new Point(20, y + 14);
-        _hideCheckbox.Location = new Point(20, y + 38);
-        SetContentSize(ContentWidth, y + 38 + 20 + 18);
+        _addApps.Location = new Point(20, y + 16);
+        _hideCheckbox.Location = new Point(20, y + 16 + 34 + 14);
+        SetContentSize(ContentWidth, y + 16 + 34 + 14 + 20 + 18);
     }
 
     /// <summary>Minutes, the way the phone and the website write them: 12m,
@@ -330,6 +351,15 @@ internal class LiveTrackingForm : DarkForm
                     avatar.Invalidate();
                 });
             }, TaskContinuationOptions.OnlyOnRanToCompletion);
+        }
+
+        public void SetWidth(int width)
+        {
+            if (Width == width) return;
+            Width = width;
+            Region = new Region(Theme.RoundedRect(new Rectangle(0, 0, Width, Height), 12));
+            _liveLabel.Left = Width - 20 - _liveLabel.PreferredWidth;
+            _progressTrack.Width = Width - 84;
         }
 
         public void UpdateData(int dailySeconds, int weeklySeconds, int dailyLimitSeconds, bool isLive)

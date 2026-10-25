@@ -418,7 +418,7 @@ public class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        _liveTrackingForm = new LiveTrackingForm(_accumulator, () => _trackedApps, () => _currentlyTrackingUrl, () => _plan, ResetHour);
+        _liveTrackingForm = new LiveTrackingForm(_accumulator, () => _trackedApps, () => _currentlyTrackingUrl, () => _plan, ResetHour, ShowAddApps);
         _liveTrackingForm.FormClosed += (_, _) => _liveTrackingForm = null;
         _liveTrackingForm.Show();
         _liveTrackingForm.Activate();
