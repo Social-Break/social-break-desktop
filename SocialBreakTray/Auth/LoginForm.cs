@@ -44,6 +44,7 @@ internal class LoginForm : DarkForm
     // 34 was the height of the text and nothing else. These are the first
     // things anyone sees of the app, and they read as cramped.
     private const int FieldHeight = 44;
+    private const int SignInHeight = 532;
 
     private readonly SocialBreakApiClient _apiClient;
     private readonly RoundedField _usernameField = new(T("Username or email", "Όνομα χρήστη ή email"), FieldWidth, FieldHeight);
@@ -68,7 +69,7 @@ internal class LoginForm : DarkForm
         // Tall enough for the status line's three wrapped lines - the
         // server's explanations are sentences, not single words, and a
         // clipped explanation is no better than none.
-        SetContentSize(FieldWidth + Pad * 2, 532);
+        SetContentSize(FieldWidth + Pad * 2, SignInHeight);
         StartPosition = FormStartPosition.CenterScreen;
 
         int y = 26;
@@ -229,7 +230,11 @@ internal class LoginForm : DarkForm
 
         if (showWelcome)
         {
-            _welcome = BuildWelcome(FieldWidth + Pad * 2, 532);
+            _welcome = BuildWelcome(FieldWidth + Pad * 2);
+            // The window fits the welcome, then grows to the sign-in's size on
+            // Continue - the welcome is shorter, and the space left under its
+            // button looked unfinished.
+            SetContentSize(FieldWidth + Pad * 2, _welcome.Height);
             Content.Controls.Add(_welcome);
             _welcome.BringToFront();
             AcceptButton = _continueButton;
@@ -240,9 +245,9 @@ internal class LoginForm : DarkForm
     /// that watches which window is in front looks like spyware unless it
     /// says so first. Closing the window here, like closing it at sign-in,
     /// ends the app - Continue is the only way on.</summary>
-    private Panel BuildWelcome(int width, int height)
+    private Panel BuildWelcome(int width)
     {
-        var panel = new Panel { Location = new Point(0, 0), Size = new Size(width, height), BackColor = Theme.Bg };
+        var panel = new Panel { Location = new Point(0, 0), Width = width, BackColor = Theme.Bg };
         int y = 26;
 
         var icon = new Panel { Location = new Point((width - 48) / 2, y), Size = new Size(48, 48), BackColor = Color.Transparent };
@@ -330,10 +335,13 @@ internal class LoginForm : DarkForm
         {
             TokenStore.MarkDisclosureAcknowledged();
             panel.Visible = false;
+            SetContentSize(FieldWidth + Pad * 2, SignInHeight);
+            CenterToScreen();
             AcceptButton = _loginButton;
             ActiveControl = _browserButton;
         };
         panel.Controls.AddRange(new Control[] { more, _continueButton });
+        panel.Height = y + 40 + 30;
         return panel;
     }
 
