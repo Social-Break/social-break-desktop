@@ -262,17 +262,14 @@ internal class LoginForm : DarkForm
         panel.Controls.AddRange(new Control[] { icon, heading });
         y += 28 + 24;
 
-        // Segoe MDL2 Assets glyphs: a clock, a shield, pause.
-        var rows = new (string Glyph, string Title, string Detail)[]
+        // Segoe MDL2 Assets glyphs: a clock and a shield. Two plain promises;
+        // the details are on the privacy page linked under them.
+        var rows = new (string Glyph, string Title)[]
         {
-            ("\uE823", T("Counts time in the apps on your list", "Μετράει τον χρόνο στις εφαρμογές της λίστας σου"),
-                T("The same limits as on your phone and in your browser.", "Με τα ίδια όρια όπως στο κινητό και στον browser.")),
-            ("\uEA18", T("Sees only which app is in front", "Βλέπει μόνο ποια εφαρμογή είναι μπροστά"),
-                T("Never your screen, what you type or your files.", "Ποτέ την οθόνη σου, ό,τι γράφεις ή τα αρχεία σου.")),
-            ("\uE769", T("Always in your tray", "Πάντα στο εικονίδιο κάτω δεξιά"),
-                T("Pause it, log out or quit any time.", "Σταμάτησέ το, αποσυνδέσου ή κλείσ' το όποτε θες.")),
+            ("\uE823", T("Tracks your desktop apps", "Μετράει τις εφαρμογές του υπολογιστή σου")),
+            ("\uEA18", T("Your data is safe", "Τα δεδομένα σου είναι ασφαλή")),
         };
-        foreach (var (glyph, title, detail) in rows)
+        foreach (var (glyph, title) in rows)
         {
             var badge = new Panel { Location = new Point(Pad, y), Size = new Size(36, 36), BackColor = Color.Transparent };
             badge.Paint += (_, e) =>
@@ -288,44 +285,35 @@ internal class LoginForm : DarkForm
             {
                 Text = title,
                 ForeColor = Theme.TextPrimary,
-                Font = new Font(Theme.UiFont.FontFamily, 9.5f, FontStyle.Bold),
+                Font = new Font(Theme.UiFont.FontFamily, 10f, FontStyle.Bold),
                 AutoSize = false,
-                Location = new Point(Pad + 48, y - 1),
-                Size = new Size(FieldWidth - 48, 20),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Location = new Point(Pad + 50, y),
+                Size = new Size(FieldWidth - 50, 36),
             };
-            var detailLabel = new Label
-            {
-                Text = detail,
-                ForeColor = Theme.TextSecondary,
-                AutoSize = false,
-                Location = new Point(Pad + 48, y + 19),
-                Size = new Size(FieldWidth - 48, 34),
-            };
-            panel.Controls.AddRange(new Control[] { badge, titleLabel, detailLabel });
-            y += 62;
+            panel.Controls.AddRange(new Control[] { badge, titleLabel });
+            y += 50;
         }
         y += 6;
 
-        var linkText = T("What leaves your computer", "Τι φεύγει από τον υπολογιστή σου");
-        var moreText = T("It also suggests your most-used apps for your list - you can turn that off. ",
-            "Σου προτείνει επίσης τις εφαρμογές που χρησιμοποιείς περισσότερο - μπορείς να το κλείσεις. ") + linkText + " →";
+        var moreText = T("Privacy policy →", "Πολιτική απορρήτου →");
         var more = new LinkLabel
         {
             Text = moreText,
-            LinkArea = new LinkArea(moreText.IndexOf(linkText, StringComparison.Ordinal), linkText.Length + 2),
+            LinkArea = new LinkArea(0, moreText.Length),
             ForeColor = Theme.TextMuted,
             LinkColor = Theme.AccentGreen,
             ActiveLinkColor = Theme.TextPrimary,
             VisitedLinkColor = Theme.AccentGreen,
             LinkBehavior = LinkBehavior.HoverUnderline,
-            Font = new Font(Theme.UiFont.FontFamily, 8.5f),
+            Font = new Font(Theme.UiFont.FontFamily, 9f),
             AutoSize = false,
             TextAlign = ContentAlignment.TopCenter,
             Location = new Point(Pad, y),
-            Size = new Size(FieldWidth, 54),
+            Size = new Size(FieldWidth, 22),
         };
         more.LinkClicked += (_, _) => TryOpenUrl(SocialBreakApiClient.SiteUrl + "/privacy/");
-        y += 54 + 14;
+        y += 22 + 28;
 
         _continueButton = new RoundedButton
         {
