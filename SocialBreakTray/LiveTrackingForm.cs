@@ -37,9 +37,10 @@ namespace SocialBreakTray;
 /// </summary>
 internal class LiveTrackingForm : DarkForm
 {
-    private const int ContentWidth = 460;
-    private const int HeaderHeight = 76;
-    private const int CardStep = 86;   // a card and the gap under it
+    private const int ContentWidth = 520;
+    private const int InnerWidth = 480;
+    private const int HeaderHeight = 88;
+    private const int CardStep = 96;   // a card and the gap under it
     private const int MostCardsShown = 4;
 
     private readonly UsageAccumulator _accumulator;
@@ -55,7 +56,7 @@ internal class LiveTrackingForm : DarkForm
     private readonly RoundedButton _addApps;
     private readonly DarkCheckBox _hideCheckbox;
     private int _laidOutFor = -1;
-    private int _cardWidth = 420;
+    private int _cardWidth = InnerWidth;
     private readonly System.Windows.Forms.Timer _refreshTimer;
 
     public LiveTrackingForm(UsageAccumulator accumulator, Func<List<MediaItemDto>> getTrackedApps,
@@ -83,18 +84,18 @@ internal class LiveTrackingForm : DarkForm
         {
             Text = T("Today", "Σήμερα"),
             ForeColor = Theme.TextPrimary,
-            Font = new Font("Segoe UI", 14, FontStyle.Bold),
+            Font = new Font("Segoe UI", 15, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(18, 14),
+            Location = new Point(18, 16),
             BackColor = Color.Transparent,
         };
         var subtitle = new Label
         {
             Text = T("Your apps on this computer, against their limits.", "Οι εφαρμογές σου σε αυτόν τον υπολογιστή, απέναντι στα όριά τους."),
             ForeColor = Theme.TextSecondary,
-            Font = new Font("Segoe UI", 8.5f),
+            Font = new Font("Segoe UI", 9f),
             AutoSize = true,
-            Location = new Point(20, 44),
+            Location = new Point(21, 52),
             BackColor = Color.Transparent,
         };
         header.Controls.Add(title);
@@ -106,7 +107,7 @@ internal class LiveTrackingForm : DarkForm
             WrapContents = false,
             AutoScroll = false,
             Location = new Point(20, HeaderHeight + 16),
-            Size = new Size(420, CardStep),
+            Size = new Size(InnerWidth, CardStep),
             BackColor = Theme.Bg,
         };
 
@@ -115,7 +116,7 @@ internal class LiveTrackingForm : DarkForm
             Text = T("No apps from this computer on your list yet. Pick some with Add apps… on the tray icon.", "Δεν υπάρχουν ακόμα εφαρμογές του υπολογιστή στη λίστα σου. Διάλεξε με την Προσθήκη εφαρμογών… στο εικονίδιο κάτω δεξιά."),
             ForeColor = Theme.TextMuted,
             AutoSize = true,
-            MaximumSize = new Size(400, 0),
+            MaximumSize = new Size(InnerWidth - 20, 0),
             Visible = false,
         };
 
@@ -123,7 +124,7 @@ internal class LiveTrackingForm : DarkForm
         // static explanatory text under it.
         _divider = new Panel
         {
-            Size = new Size(420, 1),
+            Size = new Size(InnerWidth, 1),
             BackColor = Theme.Border,
         };
 
@@ -132,12 +133,12 @@ internal class LiveTrackingForm : DarkForm
         _addApps = new RoundedButton
         {
             Text = T("+  Add apps", "+  Προσθήκη εφαρμογών"),
-            Size = new Size(170, 34),
+            Size = new Size(190, 38),
             BackColor = Theme.Card,
             ForeColor = Theme.TextPrimary,
             OutlineColor = Theme.Border,
             HoverColor = Theme.MenuHover,
-            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
             Cursor = Cursors.Hand,
         };
         _addApps.Click += (_, _) => showAddApps();
@@ -152,7 +153,7 @@ internal class LiveTrackingForm : DarkForm
         _hideCheckbox = new DarkCheckBox
         {
             Text = T("Don't show this automatically on startup", "Να μην εμφανίζεται αυτόματα στην εκκίνηση"),
-            Size = new Size(320, 20),
+            Size = new Size(360, 20),
             Checked = TokenStore.IsWelcomeHiddenOnStartup(),
         };
         _hideCheckbox.CheckedChanged += (_, _) => TokenStore.SetHideWelcomeOnStartup(_hideCheckbox.Checked);
@@ -226,7 +227,7 @@ internal class LiveTrackingForm : DarkForm
             _cardList.HorizontalScroll.Maximum = 0;
             _cardList.HorizontalScroll.Visible = false;
         }
-        int cardWidth = scrolls ? 420 - SystemInformation.VerticalScrollBarWidth - 4 : 420;
+        int cardWidth = scrolls ? InnerWidth - SystemInformation.VerticalScrollBarWidth - 4 : InnerWidth;
         foreach (var card in _cards.Values) card.SetWidth(cardWidth);
         _cardWidth = cardWidth;
 
@@ -234,9 +235,9 @@ internal class LiveTrackingForm : DarkForm
         _cardList.Height = listHeight;
         int y = _cardList.Bottom + 6;
         _divider.Location = new Point(20, y);
-        _addApps.Location = new Point(20, y + 16);
-        _hideCheckbox.Location = new Point(20, y + 16 + 34 + 14);
-        SetContentSize(ContentWidth, y + 16 + 34 + 14 + 20 + 18);
+        _addApps.Location = new Point(20, y + 20);
+        _hideCheckbox.Location = new Point(20, y + 20 + 38 + 18);
+        SetContentSize(ContentWidth, y + 20 + 38 + 18 + 20 + 24);
     }
 
     /// <summary>Minutes, the way the phone and the website write them: 12m,
@@ -268,7 +269,7 @@ internal class LiveTrackingForm : DarkForm
         public TrackedAppCard(string exe, string appName)
         {
             _appName = appName;
-            Size = new Size(420, 76);
+            Size = new Size(InnerWidth, 84);
             Margin = new Padding(0, 0, 0, 10);
             BackColor = Theme.Card;
             Region = new Region(Theme.RoundedRect(new Rectangle(0, 0, Width, Height), 12));
@@ -276,7 +277,7 @@ internal class LiveTrackingForm : DarkForm
             var avatar = new Panel
             {
                 Size = new Size(40, 40),
-                Location = new Point(16, 18),
+                Location = new Point(18, 22),
                 BackColor = Color.Transparent,
             };
             avatar.Paint += (_, e) =>
@@ -299,9 +300,9 @@ internal class LiveTrackingForm : DarkForm
             {
                 Text = appName,
                 ForeColor = Theme.TextPrimary,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
                 AutoSize = true,
-                Location = new Point(68, 14),
+                Location = new Point(72, 17),
                 BackColor = Color.Transparent,
             };
 
@@ -314,21 +315,21 @@ internal class LiveTrackingForm : DarkForm
                 BackColor = Color.Transparent,
                 Visible = false,
             };
-            _liveLabel.Location = new Point(Width - 20 - _liveLabel.PreferredWidth, 16);
+            _liveLabel.Location = new Point(Width - 20 - _liveLabel.PreferredWidth, 19);
 
             _timeLabel = new Label
             {
                 ForeColor = Theme.TextSecondary,
-                Font = new Font("Segoe UI", 8.5f),
+                Font = new Font("Segoe UI", 9f),
                 AutoSize = true,
-                Location = new Point(68, 36),
+                Location = new Point(72, 40),
                 BackColor = Color.Transparent,
             };
 
             _progressTrack = new ProgressTrack
             {
-                Location = new Point(68, 56),
-                Size = new Size(336, 6),
+                Location = new Point(72, 64),
+                Size = new Size(InnerWidth - 92, 6),
                 Visible = false,
             };
 
@@ -359,7 +360,7 @@ internal class LiveTrackingForm : DarkForm
             Width = width;
             Region = new Region(Theme.RoundedRect(new Rectangle(0, 0, Width, Height), 12));
             _liveLabel.Left = Width - 20 - _liveLabel.PreferredWidth;
-            _progressTrack.Width = Width - 84;
+            _progressTrack.Width = Width - 92;
         }
 
         public void UpdateData(int dailySeconds, int weeklySeconds, int dailyLimitSeconds, bool isLive)
