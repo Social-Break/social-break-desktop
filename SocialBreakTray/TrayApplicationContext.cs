@@ -30,6 +30,7 @@ public class TrayApplicationContext : ApplicationContext
     private readonly UsageAccumulator _accumulator = new(ResetHour);
     // The week's most-used programs, for the website to offer by name.
     private readonly TopAppsTracker _topApps = new();
+    private string? _bigGoal;
     // Read once, not every second: the setting lives in the encrypted config.
     private bool _suggestApps = TokenStore.IsSuggestingApps();
     private UsageReporter? _usageReporter;
@@ -267,6 +268,9 @@ public class TrayApplicationContext : ApplicationContext
             var allMedia = await _apiClient.GetMediaItemsAsync();
             _trackedApps = allMedia.Where(m => m.SourceType == "desktop_app" && m.IsActive).ToList();
             _plan = await _apiClient.GetPlanAsync();
+            // The goal the block screen shows - fetched here so the screen
+            // itself appears at once, without waiting on the network.
+            try { _bigGoal = await _apiClient.GetBigGoalAsync(); } catch { }
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
@@ -343,14 +347,12 @@ public class TrayApplicationContext : ApplicationContext
         int weeklySeconds = _accumulator.WeeklySeconds.GetValueOrDefault(match.Url);
         SetTrayStatus(T($"{match.Name} - {FormatTime(weeklySeconds)} this week", $"{match.Name} - {FormatTime(weeklySeconds)} αυτή την εβδομάδα"));
 
-        // Neither "continue" nor a snooze holds against a lock.
-        if (locked || !_blockState.IsDismissedForToday(match.Url))
+        // Once an app's time is up it stays up: only a snooze (three a day)
+        // steps aside, and never in a lock or strict mode.
+        var blockReason = LimitEvaluator.IsLimitReached(match.Url, _plan, dailySeconds, weeklySeconds, ResetHour);
+        if (blockReason != null)
         {
-            var blockReason = LimitEvaluator.IsLimitReached(match.Url, _plan, dailySeconds, weeklySeconds, ResetHour);
-            if (blockReason != null)
-            {
-                ShowBlockOverlay(match, foreground.Value.WindowHandle, blockReason);
-            }
+            ShowBlockOverlay(match, foreground.Value.WindowHandle, blockReason);
         }
     }
 
@@ -358,21 +360,9 @@ public class TrayApplicationContext : ApplicationContext
     {
         if (_activeBlockForm is { IsDisposed: false }) return; // one at a time
 
-        bool isRepeat = blockReason != LimitEvaluator.BlockReason.Locked && _plan?.StrictMode != true && _blockState.HasAlreadyBlockedToday(match.Url);
-        _blockState.MarkBlockedToday(match.Url);
-
-        var block = new BlockForm(match.Name, windowHandle, blockReason, isRepeat, _plan?.LockedUntil, _plan?.StrictMode == true);
-        block.ContinueRequested += permanent =>
-        {
-            if (permanent)
-            {
-                _blockState.MarkDismissedForToday(match.Url);
-            }
-            else
-            {
-                _blockState.Snooze(match.Url, TimeSpan.FromMinutes(5));
-            }
-        };
+        bool canSnooze = blockReason != LimitEvaluator.BlockReason.Locked && _plan?.StrictMode != true && _blockState.HasSnoozeLeft;
+        var block = new BlockForm(match.Name, windowHandle, blockReason, canSnooze, _bigGoal, _plan?.LockedUntil);
+        block.SnoozeRequested += () => _blockState.Snooze(match.Url, TimeSpan.FromMinutes(5));
         block.FormClosed += (_, _) => _activeBlockForm = null;
         _activeBlockForm = block;
         block.Show();

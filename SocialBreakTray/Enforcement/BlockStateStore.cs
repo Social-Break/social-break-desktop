@@ -7,6 +7,7 @@ internal class BlockState
     public HashSet<string> AlreadyBlockedToday { get; set; } = new();
     public HashSet<string> DismissedForToday { get; set; } = new();
     public Dictionary<string, DateTime> SnoozeExemptions { get; set; } = new();
+    public int SnoozesUsed { get; set; }
     public string? LogicalDay { get; set; } // ISO date string, e.g. "2026-08-29"
 }
 
@@ -33,15 +34,19 @@ internal class BlockState
 /// </summary>
 public class BlockStateStore
 {
-    private static readonly string StatePath = Path.Combine(
+    private static readonly string DefaultPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SocialBreak", "blockstate.dat");
 
     private readonly int _resetHour;
     private BlockState _state;
 
-    public BlockStateStore(int resetHour)
+    private readonly string StatePath;
+
+    /// <param name="statePath">Where it's kept; tests give their own file.</param>
+    public BlockStateStore(int resetHour, string? statePath = null)
     {
         _resetHour = resetHour;
+        StatePath = statePath ?? DefaultPath;
         _state = Load();
         ApplyRolloverIfNeeded();
     }
@@ -78,11 +83,29 @@ public class BlockStateStore
         return _state.SnoozeExemptions.TryGetValue(identifier, out var until) && DateTime.UtcNow < until;
     }
 
-    public void Snooze(string identifier, TimeSpan duration)
+    /// <summary>Snoozes a day, all apps together - the same three as the
+    /// browser extension. How many are left is never shown: a number to
+    /// spend down is a reason to spend it.</summary>
+    public const int SnoozesPerDay = 3;
+
+    public bool HasSnoozeLeft
+    {
+        get
+        {
+            ApplyRolloverIfNeeded();
+            return _state.SnoozesUsed < SnoozesPerDay;
+        }
+    }
+
+    /// <summary>Uses one of today's snoozes on this app; false when none are left.</summary>
+    public bool Snooze(string identifier, TimeSpan duration)
     {
         ApplyRolloverIfNeeded();
+        if (_state.SnoozesUsed >= SnoozesPerDay) return false;
         _state.SnoozeExemptions[identifier] = DateTime.UtcNow.Add(duration);
+        _state.SnoozesUsed++;
         Save();
+        return true;
     }
 
     private DateOnly LogicalToday()
@@ -99,11 +122,12 @@ public class BlockStateStore
         _state.AlreadyBlockedToday.Clear();
         _state.DismissedForToday.Clear();
         _state.SnoozeExemptions.Clear();
+        _state.SnoozesUsed = 0;
         _state.LogicalDay = todayStr;
         Save();
     }
 
-    private static BlockState Load()
+    private BlockState Load()
     {
         try
         {
