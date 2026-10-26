@@ -396,7 +396,7 @@ internal class AddAppsForm : DarkForm
                 Location = new Point(0, y),
                 Size = new Size(pickerWidth, 22),
             });
-            var picker = new LimitPicker(pickerWidth) { Location = new Point(0, y + 26) };
+            var picker = new LimitPicker(pickerWidth, 38) { Location = new Point(0, y + 26) };
             picker.SetCurrent(30, false);
             rowsPanel.Controls.Add(picker);
             pickers.Add((item!, picker));
