@@ -108,7 +108,8 @@ public class BlockForm : Form
             int width = Math.Max(title.Width, body.Width + beside + buttonsWidth);
             int height = title.Height + 6 + rowHeight;
             int left = (ClientSize.Width - width) / 2;
-            int top = (ClientSize.Height - height) / 2;
+            // A little above the middle, where the eye lands first.
+            int top = (int)((ClientSize.Height - height) * 0.38);
 
             title.Location = new Point(left - 4, top);
             int rowTop = top + title.Height + 6;
