@@ -359,7 +359,10 @@ public class TrayApplicationContext : ApplicationContext
         if (_activeBlockForm is { IsDisposed: false }) return; // one at a time
 
         bool canSnooze = blockReason != LimitEvaluator.BlockReason.Locked && _plan?.StrictMode != true && _blockState.HasSnoozeLeft;
-        var block = new BlockForm(match.Name, windowHandle, blockReason, canSnooze, _plan?.LockedUntil);
+        string? sealedNote = blockReason == LimitEvaluator.BlockReason.Locked || canSnooze ? null
+            : _plan?.StrictMode == true ? T("Strict mode is on - no snoozes. It stays closed.", "Η αυστηρή λειτουργία είναι ενεργή - χωρίς αναβολές. Μένει κλειστό.")
+            : T("No snoozes left today - it stays closed until tomorrow.", "Δεν μένουν αναβολές για σήμερα - μένει κλειστό μέχρι αύριο.");
+        var block = new BlockForm(match.Name, windowHandle, blockReason, canSnooze, _plan?.LockedUntil, sealedNote);
         block.SnoozeRequested += () => _blockState.Snooze(match.Url, TimeSpan.FromMinutes(5));
         // Closing an app can take a moment - Vivaldi asks "Do you really want
         // to exit?" - and covering that question again a second later made the

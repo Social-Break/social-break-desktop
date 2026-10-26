@@ -41,7 +41,10 @@ public class BlockForm : Form
         [LimitEvaluator.BlockReason.WeeklyLimit] = T("You've used up your weekly time limit for {0}.", "Χρησιμοποίησες όλο τον χρόνο της εβδομάδας για το {0}."),
     };
 
-    public BlockForm(string appName, nint targetWindow, string blockReason, bool canSnooze, DateTimeOffset? lockedUntil = null)
+    /// <param name="sealedNote">Said under the sentence when there's no
+    /// snooze to offer - all of today's spent, or strict mode - so the page
+    /// doesn't just quietly drop the button.</param>
+    public BlockForm(string appName, nint targetWindow, string blockReason, bool canSnooze, DateTimeOffset? lockedUntil = null, string? sealedNote = null)
     {
         bool locked = blockReason == LimitEvaluator.BlockReason.Locked;
         FormBorderStyle = FormBorderStyle.None;
@@ -93,8 +96,18 @@ public class BlockForm : Form
         };
         buttons.Add(close);
 
+        var sealedLabel = new Label
+        {
+            Text = sealedNote ?? "",
+            ForeColor = Color.FromArgb(0xf3, 0x8b, 0xa8),
+            Font = new Font("Segoe UI Semibold", 12),
+            AutoSize = true,
+            Visible = !string.IsNullOrEmpty(sealedNote) && !locked,
+        };
+
         Controls.Add(title);
         Controls.Add(body);
+        Controls.Add(sealedLabel);
         foreach (var button in buttons) Controls.Add(button);
 
         // Title on top; the sentence under it, with the buttons beside the
@@ -106,7 +119,7 @@ public class BlockForm : Form
             int buttonHeight = buttons.Max(b => b.Height);
             int rowHeight = Math.Max(body.Height, buttonHeight);
             int width = Math.Max(title.Width, body.Width + beside + buttonsWidth);
-            int height = title.Height + 6 + rowHeight;
+            int height = title.Height + 6 + rowHeight + (sealedLabel.Visible ? 14 + sealedLabel.Height : 0);
             int left = (ClientSize.Width - width) / 2;
             // A little above the middle, where the eye lands first.
             int top = (int)((ClientSize.Height - height) * 0.38);
@@ -114,6 +127,7 @@ public class BlockForm : Form
             title.Location = new Point(left - 4, top);
             int rowTop = top + title.Height + 6;
             body.Location = new Point(left, rowTop + (rowHeight - body.Height) / 2);
+            sealedLabel.Location = new Point(left, rowTop + rowHeight + 14);
             int x = left + body.Width + beside;
             foreach (var button in buttons)
             {
