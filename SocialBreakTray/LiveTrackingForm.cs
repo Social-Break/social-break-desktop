@@ -63,7 +63,7 @@ internal class LiveTrackingForm : DarkForm
     public LiveTrackingForm(UsageAccumulator accumulator, Func<List<MediaItemDto>> getTrackedApps,
         Func<string?> getCurrentlyTrackedUrl, Func<PlanDto?> getPlan, int resetHour, Action showAddApps,
         Action<MediaItemDto, string> editLimit)
-        : base(T("Social Break - Live Tracking", "Social Break - Ζωντανή μέτρηση"), showMinimize: true)
+        : base(T("Social Break - Dashboard", "Social Break - Πίνακας"), showMinimize: true)
     {
         _accumulator = accumulator;
         _getTrackedApps = getTrackedApps;

@@ -43,7 +43,6 @@ public class TrayApplicationContext : ApplicationContext
     // purely in memory - a process restart shouldn't make the app "forget"
     // an already-shown-today or already-dismissed-today choice.
     private readonly BlockStateStore _blockState = new(ResetHour);
-    private DateTime? _pausedUntilUtc;
     private BlockForm? _activeBlockForm;
     private LiveTrackingForm? _liveTrackingForm;
     private AddAppsForm? _addAppsForm;
@@ -170,8 +169,8 @@ public class TrayApplicationContext : ApplicationContext
         menu.Items.Add(_statusMenuItem);
         menu.Items.Add(new ToolStripSeparator());
 
-        menu.Items.Add(T("Pause tracking (5 min)", "Παύση μέτρησης (5 λεπτά)"), null, (_, _) => PauseTracking());
-        menu.Items.Add(T("Live Tracking", "Ζωντανή μέτρηση"), null, (_, _) => ShowLiveTracking());
+        // No "pause tracking": a limit that steps aside on request isn't one.
+        menu.Items.Add(T("Dashboard", "Πίνακας"), null, (_, _) => ShowLiveTracking());
         menu.Items.Add(T("Add apps…", "Προσθήκη εφαρμογών…"), null, (_, _) => ShowAddApps());
         menu.Items.Add(T("Open Website", "Άνοιγμα ιστότοπου"), null, (_, _) => OpenWebsite());
         menu.Items.Add(T("About Social Break", "Σχετικά με το Social Break"), null, (_, _) => ShowAbout());
@@ -307,17 +306,6 @@ public class TrayApplicationContext : ApplicationContext
         // at every one of the several early-return points above that path.
         _currentlyTrackingUrl = null;
 
-        // A lock, or strict mode, can't be paused around.
-        if (_pausedUntilUtc is { } pausedUntil && !LimitEvaluator.IsLocked(_plan) && _plan?.StrictMode != true)
-        {
-            if (DateTime.UtcNow < pausedUntil)
-            {
-                SetTrayStatus(T("Paused", "Σε παύση"));
-                return;
-            }
-            _pausedUntilUtc = null;
-        }
-
         if (_idleProvider.GetIdleTime() >= TimeSpan.FromSeconds(60))
         {
             SetTrayStatus(T("Idle", "Αδράνεια"));
@@ -388,12 +376,6 @@ public class TrayApplicationContext : ApplicationContext
         block.FormClosed += (_, _) => _activeBlockForm = null;
         _activeBlockForm = block;
         block.Show();
-    }
-
-    private void PauseTracking()
-    {
-        _pausedUntilUtc = DateTime.UtcNow.AddMinutes(5);
-        SetTrayStatus(T("Paused", "Σε παύση"));
     }
 
     /// <summary>Opens the Live Tracking window, or brings the existing one

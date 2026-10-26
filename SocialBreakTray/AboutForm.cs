@@ -31,24 +31,15 @@ internal class AboutForm : DarkForm
 
     private static readonly string[] Paragraphs =
     {
-        T("This app tracks time in the desktop applications you've added to your " +
-          "Media List on the website - the same way the browser extension tracks " +
-          "browser tabs, just for apps outside your browser.",
-          "Αυτή η εφαρμογή μετράει τον χρόνο στις εφαρμογές υπολογιστή που πρόσθεσες " +
-          "στη λίστα σου στον ιστότοπο - όπως η επέκταση του browser μετράει τις " +
-          "καρτέλες, απλώς για εφαρμογές έξω από τον browser."),
+        T("Social Break tracks time in the apps on your list on this computer, " +
+          "with the same limits as on your phone and in your browser.",
+          "Το Social Break μετράει τον χρόνο στις εφαρμογές της λίστας σου σε αυτόν " +
+          "τον υπολογιστή, με τα ίδια όρια όπως στο κινητό και στον browser."),
 
-        T("Your list, limits and usage are all managed on the website - this " +
-          "app's Live Tracking window just shows what's being counted right now.",
-          "Η λίστα σου, τα όρια και η χρήση ρυθμίζονται όλα στον ιστότοπο - το " +
-          "παράθυρο Ζωντανή μέτρηση δείχνει απλώς τι μετριέται τώρα."),
-
-        T("Look for the Social Break icon in your system tray (you may need to click " +
-          "the small arrow to show hidden icons) to pause tracking, check status, " +
-          "toggle Start with Windows, or log out.",
-          "Βρες το εικονίδιο του Social Break στη γραμμή εργασιών (ίσως χρειαστεί να " +
-          "πατήσεις το βελάκι για τα κρυφά εικονίδια) για παύση της μέτρησης, την " +
-          "κατάσταση, την έναρξη με τα Windows ή την αποσύνδεση."),
+        T("Your data is safe. It only sees which app is in front - never your " +
+          "screen, what you type or your files.",
+          "Τα δεδομένα σου είναι ασφαλή. Βλέπει μόνο ποια εφαρμογή είναι μπροστά - " +
+          "ποτέ την οθόνη σου, ό,τι γράφεις ή τα αρχεία σου."),
     };
 
     public AboutForm() : base(T("About Social Break", "Σχετικά με το Social Break"), showMinimize: false)
@@ -109,6 +100,26 @@ internal class AboutForm : DarkForm
             Content.Controls.Add(paragraph);
             y += paragraph.PreferredHeight + ParagraphGap;
         }
+
+        var privacy = new LinkLabel
+        {
+            Text = T("Privacy policy →", "Πολιτική απορρήτου →"),
+            LinkColor = Theme.AccentGreen,
+            ActiveLinkColor = Theme.TextPrimary,
+            VisitedLinkColor = Theme.AccentGreen,
+            LinkBehavior = LinkBehavior.HoverUnderline,
+            Font = bodyFont,
+            AutoSize = true,
+            Location = new Point(Pad, y - 4),
+            BackColor = Color.Transparent,
+        };
+        privacy.LinkClicked += (_, _) =>
+        {
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(SocialBreakTray.Api.SocialBreakApiClient.SiteUrl + "/privacy/") { UseShellExecute = true }); }
+            catch { /* nothing to open it with */ }
+        };
+        Content.Controls.Add(privacy);
+        y += privacy.PreferredHeight + ParagraphGap - 4;
 
         var divider = new Panel
         {
