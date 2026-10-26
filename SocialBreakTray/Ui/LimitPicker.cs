@@ -15,9 +15,9 @@ internal class LimitPicker : Panel
 
     public event EventHandler? Changed;
 
-    public LimitPicker(int width)
+    public LimitPicker(int width, int height = 34)
     {
-        Size = new Size(width, 34);
+        Size = new Size(width, height);
         BackColor = Color.Transparent;
 
         const int gap = 8;
@@ -29,7 +29,7 @@ internal class LimitPicker : Panel
             {
                 Text = i < Minutes.Length ? Short(Minutes[i]) : T("Block", "Μπλοκ"),
                 Location = new Point(i * (chipWidth + gap), 0),
-                Size = new Size(chipWidth, 34),
+                Size = new Size(chipWidth, height),
                 Font = new Font(Theme.UiFont.FontFamily, 9.5f, FontStyle.Bold),
                 Cursor = Cursors.Hand,
             };

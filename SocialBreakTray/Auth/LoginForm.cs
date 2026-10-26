@@ -89,7 +89,7 @@ internal class LoginForm : DarkForm
         {
             Text = T("Log in to continue", "Συνδέσου για να συνεχίσεις"),
             ForeColor = Theme.TextPrimary,
-            Font = new Font(Theme.UiFont.FontFamily, 14f, FontStyle.Regular),
+            Font = new Font("Segoe UI Semibold", 14.5f),
             AutoSize = false,
             TextAlign = ContentAlignment.MiddleCenter,
             Location = new Point(Pad, y),
@@ -258,7 +258,7 @@ internal class LoginForm : DarkForm
         {
             Text = T("Welcome to Social Break", "Καλώς ήρθες στο Social Break"),
             ForeColor = Theme.TextPrimary,
-            Font = new Font(Theme.UiFont.FontFamily, 14f, FontStyle.Regular),
+            Font = new Font("Segoe UI Semibold", 14.5f),
             AutoSize = false,
             TextAlign = ContentAlignment.MiddleCenter,
             Location = new Point(Pad, y),
