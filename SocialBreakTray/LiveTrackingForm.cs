@@ -48,6 +48,7 @@ internal class LiveTrackingForm : DarkForm
     private readonly Func<string?> _getCurrentlyTrackedUrl;
     private readonly Func<PlanDto?> _getPlan;
     private readonly int _resetHour;
+    private readonly Action<MediaItemDto, string> _editLimit;
 
     private readonly FlowLayoutPanel _cardList;
     private readonly Dictionary<string, TrackedAppCard> _cards = new();
@@ -60,7 +61,8 @@ internal class LiveTrackingForm : DarkForm
     private readonly System.Windows.Forms.Timer _refreshTimer;
 
     public LiveTrackingForm(UsageAccumulator accumulator, Func<List<MediaItemDto>> getTrackedApps,
-        Func<string?> getCurrentlyTrackedUrl, Func<PlanDto?> getPlan, int resetHour, Action showAddApps)
+        Func<string?> getCurrentlyTrackedUrl, Func<PlanDto?> getPlan, int resetHour, Action showAddApps,
+        Action<MediaItemDto, string> editLimit)
         : base(T("Social Break - Live Tracking", "Social Break - Ζωντανή μέτρηση"), showMinimize: true)
     {
         _accumulator = accumulator;
@@ -68,6 +70,7 @@ internal class LiveTrackingForm : DarkForm
         _getCurrentlyTrackedUrl = getCurrentlyTrackedUrl;
         _getPlan = getPlan;
         _resetHour = resetHour;
+        _editLimit = editLimit;
 
         var header = new Panel { Location = new Point(0, 0), Size = new Size(ContentWidth, HeaderHeight) };
         header.Paint += (_, e) =>
@@ -187,7 +190,14 @@ internal class LiveTrackingForm : DarkForm
             seenUrls.Add(app.Url);
             if (!_cards.TryGetValue(app.Url, out var card))
             {
-                card = new TrackedAppCard(app.Url, app.Name);
+                var url = app.Url;
+                card = new TrackedAppCard(url, app.Name);
+                var thisCard = card;
+                card.Opened += () =>
+                {
+                    var current = _getTrackedApps().FirstOrDefault(a => string.Equals(a.Url, url, StringComparison.OrdinalIgnoreCase));
+                    if (current != null) _editLimit(current, thisCard.DisplayName);
+                };
                 card.SetWidth(_cardWidth);
                 _cards[app.Url] = card;
                 _cardList.Controls.Add(card);
@@ -198,7 +208,8 @@ internal class LiveTrackingForm : DarkForm
             int weekly = _accumulator.WeeklySeconds.GetValueOrDefault(app.Url) + LimitEvaluator.ElsewhereSeconds(app.Url, plan, today: false);
             int dailyLimit = LimitEvaluator.GetDailyLimitSeconds(app.Url, plan, _resetHour);
             bool isLive = string.Equals(app.Url, currentUrl, StringComparison.OrdinalIgnoreCase);
-            card.UpdateData(daily, weekly, dailyLimit, isLive);
+            bool blocked = LimitEvaluator.IsBlockedToday(app.Url, plan, _resetHour);
+            card.UpdateData(daily, weekly, dailyLimit, isLive, blocked);
         }
 
         // Drop cards for apps no longer on the Media List (removed on the
@@ -260,8 +271,12 @@ internal class LiveTrackingForm : DarkForm
     {
         private const int IconSize = 32;
         private string _appName;
+        public string DisplayName => _appName;
+        /// <summary>Clicked anywhere on the card: open its limit.</summary>
+        public event Action? Opened;
         private Bitmap? _icon;
         private readonly Label _nameLabel;
+        private readonly Label _chevron;
         private readonly Label _liveLabel;
         private readonly Label _timeLabel;
         private readonly ProgressTrack _progressTrack;
@@ -329,11 +344,25 @@ internal class LiveTrackingForm : DarkForm
             _progressTrack = new ProgressTrack
             {
                 Location = new Point(72, 64),
-                Size = new Size(InnerWidth - 92, 6),
+                Size = new Size(InnerWidth - 92 - 22, 6),
                 Visible = false,
             };
 
-            Controls.AddRange(new Control[] { avatar, _nameLabel, _liveLabel, _timeLabel, _progressTrack });
+            // "›" says the card opens; the whole card is the button.
+            _chevron = new Label
+            {
+                Text = "›",
+                ForeColor = Theme.TextMuted,
+                Font = new Font("Segoe UI", 16f),
+                AutoSize = true,
+                BackColor = Color.Transparent,
+            };
+            Controls.AddRange(new Control[] { avatar, _nameLabel, _liveLabel, _timeLabel, _progressTrack, _chevron });
+            Cursor = Cursors.Hand;
+            foreach (Control control in Controls) control.Cursor = Cursors.Hand;
+            Click += (_, _) => Opened?.Invoke();
+            foreach (Control control in Controls) control.Click += (_, _) => Opened?.Invoke();
+            PlaceRightSide();
 
             // The real name and icon, once found - the list may only know the
             // program as "discord.exe".
@@ -359,14 +388,29 @@ internal class LiveTrackingForm : DarkForm
             if (Width == width) return;
             Width = width;
             Region = new Region(Theme.RoundedRect(new Rectangle(0, 0, Width, Height), 12));
-            _liveLabel.Left = Width - 20 - _liveLabel.PreferredWidth;
-            _progressTrack.Width = Width - 92;
+            _progressTrack.Width = Width - 92 - 22;
+            PlaceRightSide();
         }
 
-        public void UpdateData(int dailySeconds, int weeklySeconds, int dailyLimitSeconds, bool isLive)
+        private void PlaceRightSide()
+        {
+            _chevron.Location = new Point(Width - 14 - _chevron.PreferredWidth, (Height - _chevron.PreferredHeight) / 2 - 2);
+            _liveLabel.Location = new Point(_chevron.Left - 10 - _liveLabel.PreferredWidth, 19);
+        }
+
+        public void UpdateData(int dailySeconds, int weeklySeconds, int dailyLimitSeconds, bool isLive, bool blocked)
         {
             BackColor = isLive ? Theme.CardLive : Theme.Card;
             _liveLabel.Visible = isLive;
+
+            if (blocked)
+            {
+                _timeLabel.Text = T("Blocked today", "Μπλοκαρισμένη σήμερα");
+                _progressTrack.Percent = 1.0;
+                _progressTrack.Visible = true;
+                _progressTrack.Invalidate();
+                return;
+            }
 
             if (dailyLimitSeconds > 0)
             {

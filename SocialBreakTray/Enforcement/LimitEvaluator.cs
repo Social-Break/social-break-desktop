@@ -167,6 +167,26 @@ public static class LimitEvaluator
 
     /// <summary>Reason codes mirror background.js's isLimitReached exactly -
     /// keep both in sync if a new one is ever added on either side.</summary>
+    /// <summary>
+    /// What an app's rule is now, as the picker can show it: a limit or a
+    /// block that's the same all week, or nothing yet. Anything finer - other
+    /// days, times of day, a weekly limit (Premium) - is a schedule, which the
+    /// picker would flatten, so it's left to the website.
+    /// </summary>
+    public static (bool Schedule, int? Minutes, bool Block) SimpleRule(PlanDto? plan, string identifier)
+    {
+        if (plan == null) return (false, null, false);
+        if (plan.WeeklyRules.Any(r => SameApp(r.Domain, identifier) && r.LimitMinutes != null)) return (true, null, false);
+        var days = plan.CustomRules.Where(r => SameApp(r.Domain, identifier)).ToList();
+        if (days.Count == 0) return (false, null, false);
+        if (days.Any(r => r.WindowStart != null || r.Windows.Count > 0)) return (true, null, false);
+        var kinds = days.Select(r => (r.IsCompletelyBlocked, r.LimitMinutes)).Distinct().ToList();
+        if (days.Select(r => r.DayOfWeek).Distinct().Count() != 7 || kinds.Count != 1) return (true, null, false);
+        return (false, kinds[0].LimitMinutes, kinds[0].IsCompletelyBlocked);
+    }
+
+    private static bool SameApp(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
     public static class BlockReason
     {
         public const string CompleteBreak = "complete_break";

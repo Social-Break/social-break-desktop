@@ -195,9 +195,8 @@ public class SocialBreakApiClient
     }
 
     /// <summary>
-    /// Puts one program on the list, from the "Add apps" window - the only
-    /// change to the list this app makes; removing, limits and rules stay on
-    /// the website. Null means it's on the list (new or already there);
+    /// Puts one program on the list, from the "Add apps" window. Removing an
+    /// app, and Premium's finer rules, stay on the website. Null means it's on the list (new or already there);
     /// otherwise the reason it isn't, in the server's own words when it gave
     /// some (a free account that's full).
     /// </summary>
@@ -216,6 +215,38 @@ public class SocialBreakApiClient
             // Not JSON - the plain wording below.
         }
         return T("Couldn't add it right now. Try again in a moment.", "Δεν προστέθηκε αυτή τη στιγμή. Δοκίμασε ξανά σε λίγο.");
+    }
+
+    /// <summary>
+    /// One app's limit, the same every day: so many minutes, or blocked - all
+    /// a free account's rules are, and what the desktop app sets. It replaces
+    /// the app's rule for each day, wherever the app is counted (the server
+    /// joins Discord here with Discord on the phone). Null when saved;
+    /// otherwise why not, in the server's words when it gave some (strict
+    /// mode won't loosen a limit).
+    /// </summary>
+    public async Task<string?> SetDailyLimitAsync(int mediaItemId, int? minutes, bool block, CancellationToken ct = default)
+    {
+        var payload = new
+        {
+            rule_type = "daily",
+            days = new[] { 0, 1, 2, 3, 4, 5, 6 },
+            media_item_ids = new[] { mediaItemId },
+            limit_minutes = block ? null : minutes,
+            is_completely_blocked = block,
+        };
+        using var response = await _http.PostAsJsonAsync("/api/custom-app-rules/add_rule/", payload, ct);
+        if (response.IsSuccessStatusCode) return null;
+        try
+        {
+            var refusal = await response.Content.ReadFromJsonAsync<AddAppRefusal>(cancellationToken: ct);
+            if (!string.IsNullOrWhiteSpace(refusal?.Detail)) return refusal.Detail;
+        }
+        catch
+        {
+            // Not JSON - the plain wording below.
+        }
+        return T("Couldn't save the limit right now. Try again in a moment.", "Δεν αποθηκεύτηκε το όριο αυτή τη στιγμή. Δοκίμασε ξανά σε λίγο.");
     }
 
     private class AddAppRefusal

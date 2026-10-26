@@ -398,6 +398,14 @@ public class TrayApplicationContext : ApplicationContext
 
     /// <summary>Opens the Live Tracking window, or brings the existing one
     /// back to the front if it's already open.</summary>
+    /// <summary>One app's daily limit, from its card in Live Tracking; a
+    /// sync after saving, so the card and the blocking use it straight away.</summary>
+    private async void EditLimit(MediaItemDto app, string displayName)
+    {
+        using var form = new LimitForm(_apiClient, app, displayName, _plan);
+        if (form.ShowDialog(_liveTrackingForm) == DialogResult.OK) await SyncAsync();
+    }
+
     private void ShowLiveTracking()
     {
         if (_liveTrackingForm is { IsDisposed: false } existing)
@@ -418,7 +426,7 @@ public class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        _liveTrackingForm = new LiveTrackingForm(_accumulator, () => _trackedApps, () => _currentlyTrackingUrl, () => _plan, ResetHour, ShowAddApps);
+        _liveTrackingForm = new LiveTrackingForm(_accumulator, () => _trackedApps, () => _currentlyTrackingUrl, () => _plan, ResetHour, ShowAddApps, EditLimit);
         _liveTrackingForm.FormClosed += (_, _) => _liveTrackingForm = null;
         _liveTrackingForm.Show();
         _liveTrackingForm.Activate();

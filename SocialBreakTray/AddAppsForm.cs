@@ -337,6 +337,122 @@ internal class AddAppsForm : DarkForm
         }
     }
 
+    /// <summary>
+    /// Straight after adding: each new app's daily limit, in this same window,
+    /// so a new app doesn't sit on the list with no limit until a trip to the
+    /// website. 30 minutes is chosen to start with; closing the window leaves
+    /// them without one.
+    /// </summary>
+    private async Task ShowLimitStepAsync(List<Row> added)
+    {
+        DialogResult = DialogResult.OK;
+        List<MediaItemDto> items;
+        try
+        {
+            items = await _api.GetMediaItemsAsync();
+        }
+        catch
+        {
+            Close();
+            return;
+        }
+        var apps = added
+            .Select(row => (row.Name, Item: items.FirstOrDefault(i => i.SourceType == "desktop_app"
+                && string.Equals(i.Url, row.Exe, StringComparison.OrdinalIgnoreCase))))
+            .Where(a => a.Item != null)
+            .ToList();
+        if (apps.Count == 0) { Close(); return; }
+
+        var page = new Panel { Location = new Point(0, 0), Size = new Size(ContentWidth, ContentHeight), BackColor = Theme.Bg };
+        var title = new Label
+        {
+            Text = T("How much time a day?", "Πόσο χρόνο τη μέρα;"),
+            ForeColor = Theme.TextPrimary,
+            Font = new Font(Theme.UiFont.FontFamily, 13f, FontStyle.Bold),
+            AutoSize = true,
+            Location = new Point(Pad - 2, 18),
+        };
+        page.Controls.Add(title);
+
+        var rowsPanel = new Panel
+        {
+            Location = new Point(Pad, 64),
+            Size = new Size(ContentWidth - Pad * 2, StatusTop - 64 - 8),
+            AutoScroll = true,
+            BackColor = Theme.Bg,
+        };
+        bool scrolls = apps.Count * 76 > rowsPanel.Height;
+        int pickerWidth = rowsPanel.Width - (scrolls ? SystemInformation.VerticalScrollBarWidth + 6 : 0);
+        var pickers = new List<(MediaItemDto Item, LimitPicker Picker)>();
+        int y = 0;
+        foreach (var (name, item) in apps)
+        {
+            rowsPanel.Controls.Add(new Label
+            {
+                Text = name,
+                ForeColor = Theme.TextPrimary,
+                Font = new Font(Theme.UiFont.FontFamily, 10f, FontStyle.Bold),
+                AutoSize = false,
+                Location = new Point(0, y),
+                Size = new Size(pickerWidth, 22),
+            });
+            var picker = new LimitPicker(pickerWidth) { Location = new Point(0, y + 26) };
+            picker.SetCurrent(30, false);
+            rowsPanel.Controls.Add(picker);
+            pickers.Add((item!, picker));
+            y += 76;
+        }
+        page.Controls.Add(rowsPanel);
+
+        var status = new Label
+        {
+            ForeColor = Theme.AccentRed,
+            AutoSize = false,
+            Location = new Point(Pad, StatusTop),
+            Size = new Size(ContentWidth - Pad * 2, 34),
+        };
+        var done = new RoundedButton
+        {
+            Text = T("Done", "Τέλος"),
+            Location = new Point(Pad, ButtonsTop),
+            Size = new Size(ContentWidth - Pad * 2, 40),
+            BackColor = Theme.ButtonGreen,
+            ForeColor = Color.White,
+            HoverColor = Theme.ButtonGreenHover,
+            Font = new Font(Theme.UiFont.FontFamily, 10f, FontStyle.Bold),
+            Cursor = Cursors.Hand,
+        };
+        done.Click += async (_, _) =>
+        {
+            done.Enabled = false;
+            status.Text = "";
+            foreach (var (item, picker) in pickers)
+            {
+                if (!picker.HasChoice) continue;
+                string? problem;
+                try
+                {
+                    problem = await _api.SetDailyLimitAsync(item.Id, picker.LimitMinutes, picker.Block);
+                }
+                catch
+                {
+                    problem = T("Couldn't reach Social Break. Check your internet and try again.", "Δεν υπάρχει σύνδεση με το Social Break. Έλεγξε το ίντερνετ και δοκίμασε ξανά.");
+                }
+                if (problem != null)
+                {
+                    status.Text = problem;
+                    done.Enabled = true;
+                    return;
+                }
+            }
+            Close();
+        };
+        page.Controls.AddRange(new Control[] { status, done });
+        Content.Controls.Add(page);
+        page.BringToFront();
+        AcceptButton = done;
+    }
+
     private static string Duration(int minutes) =>
         minutes >= 60 ? (minutes % 60 == 0 ? $"{minutes / 60}{H}" : $"{minutes / 60}{H} {minutes % 60}{M}") : $"{minutes}{M}";
 
@@ -373,8 +489,7 @@ internal class AddAppsForm : DarkForm
         _laterButton.Enabled = true;
         if (problem == null)
         {
-            DialogResult = DialogResult.OK;
-            Close();
+            await ShowLimitStepAsync(picked);
             return;
         }
         UpdateCount();
