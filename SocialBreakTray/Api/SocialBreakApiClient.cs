@@ -249,29 +249,6 @@ public class SocialBreakApiClient
         return T("Couldn't save the limit right now. Try again in a moment.", "Δεν αποθηκεύτηκε το όριο αυτή τη στιγμή. Δοκίμασε ξανά σε λίγο.");
     }
 
-    /// <summary>The first big goal in the person's jar - what the block screen
-    /// says comes first - or null when there is none.</summary>
-    public async Task<string?> GetBigGoalAsync(CancellationToken ct = default)
-    {
-        var jar = await _http.GetFromJsonAsync<JarResponse>("/api/long-term-goals/jar/", ct);
-        return jar?.Goals.FirstOrDefault(g => g.Tier == "rock")?.Title;
-    }
-
-    private class JarResponse
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("goals")]
-        public List<JarGoal> Goals { get; set; } = new();
-    }
-
-    private class JarGoal
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("tier")]
-        public string Tier { get; set; } = "";
-
-        [System.Text.Json.Serialization.JsonPropertyName("title")]
-        public string Title { get; set; } = "";
-    }
-
     private class AddAppRefusal
     {
         [System.Text.Json.Serialization.JsonPropertyName("detail")]

@@ -30,7 +30,7 @@ public class TrayApplicationContext : ApplicationContext
     private readonly UsageAccumulator _accumulator = new(ResetHour);
     // The week's most-used programs, for the website to offer by name.
     private readonly TopAppsTracker _topApps = new();
-    private string? _bigGoal;
+    private readonly Dictionary<string, DateTime> _closingUntil = new(StringComparer.OrdinalIgnoreCase);
     // Read once, not every second: the setting lives in the encrypted config.
     private bool _suggestApps = TokenStore.IsSuggestingApps();
     private UsageReporter? _usageReporter;
@@ -268,9 +268,6 @@ public class TrayApplicationContext : ApplicationContext
             var allMedia = await _apiClient.GetMediaItemsAsync();
             _trackedApps = allMedia.Where(m => m.SourceType == "desktop_app" && m.IsActive).ToList();
             _plan = await _apiClient.GetPlanAsync();
-            // The goal the block screen shows - fetched here so the screen
-            // itself appears at once, without waiting on the network.
-            try { _bigGoal = await _apiClient.GetBigGoalAsync(); } catch { }
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
@@ -350,7 +347,8 @@ public class TrayApplicationContext : ApplicationContext
         // Once an app's time is up it stays up: only a snooze (three a day)
         // steps aside, and never in a lock or strict mode.
         var blockReason = LimitEvaluator.IsLimitReached(match.Url, _plan, dailySeconds, weeklySeconds, ResetHour);
-        if (blockReason != null)
+        bool closing = _closingUntil.TryGetValue(match.Url, out var closingUntil) && DateTime.UtcNow < closingUntil;
+        if (blockReason != null && !closing)
         {
             ShowBlockOverlay(match, foreground.Value.WindowHandle, blockReason);
         }
@@ -361,8 +359,13 @@ public class TrayApplicationContext : ApplicationContext
         if (_activeBlockForm is { IsDisposed: false }) return; // one at a time
 
         bool canSnooze = blockReason != LimitEvaluator.BlockReason.Locked && _plan?.StrictMode != true && _blockState.HasSnoozeLeft;
-        var block = new BlockForm(match.Name, windowHandle, blockReason, canSnooze, _bigGoal, _plan?.LockedUntil);
+        var block = new BlockForm(match.Name, windowHandle, blockReason, canSnooze, _plan?.LockedUntil);
         block.SnoozeRequested += () => _blockState.Snooze(match.Url, TimeSpan.FromMinutes(5));
+        // Closing an app can take a moment - Vivaldi asks "Do you really want
+        // to exit?" - and covering that question again a second later made the
+        // app impossible to close. A short hold-off lets it be answered; if the
+        // app is still open after it, the block comes back.
+        block.CloseProgramRequested += () => _closingUntil[match.Url] = DateTime.UtcNow.AddSeconds(20);
         block.FormClosed += (_, _) => _activeBlockForm = null;
         _activeBlockForm = block;
         block.Show();
