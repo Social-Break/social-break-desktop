@@ -23,7 +23,7 @@
          1.0.0.0 for every build, whatever version it actually shipped as,
          which makes "which build is this?" unanswerable from a user's
          machine. -->
-    <Version>1.0.16</Version>
+    <Version>1.0.17</Version>
   </PropertyGroup>
 
   <!-- A release build names no folder on the machine it was built on: no
@@ -43,6 +43,8 @@
          frame. Embedding the file as well lets Theme pick the real 16/32/48/
          256 frames. -->
     <EmbeddedResource Include="app.ico" LogicalName="SocialBreakTray.app.ico" />
+    <!-- The Halloween logo, 25 October to 10 November (Ui/Theme.cs). -->
+    <EmbeddedResource Include="app-halloween.ico" LogicalName="SocialBreakTray.app-halloween.ico" />
   </ItemGroup>
 
 </Project>

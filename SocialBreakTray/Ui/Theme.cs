@@ -87,7 +87,13 @@ internal static class Theme
     // Icons are cached per size: they are GDI handles, and creating one per
     // paint (as the header did) leaks a handle on every repaint.
 
-    private const string IconResourceName = "SocialBreakTray.app.ico";
+    // From 25 October to 10 November the Halloween logo, as on the website
+    // and in the stores (core/context_processors.py HALLOWEEN) - chosen when
+    // the app starts, so it changes with the next start after either date.
+    private static readonly string IconResourceName =
+        (DateTime.Today.Month, DateTime.Today.Day) is (10, >= 25) or (11, <= 10)
+            ? "SocialBreakTray.app-halloween.ico"
+            : "SocialBreakTray.app.ico";
 
     private static readonly Dictionary<int, Icon?> IconCache = new();
     private static Bitmap? _iconMaster;
